@@ -11,7 +11,7 @@ PASSWORD = "your_password"
 TOTP_SECRET = "your_totp_secret"
 
 BASE_URL = "https://api.kotaksecurities.com"
-
+TEST_MODE = True
 access_token = None
 last_login_time = 0
 
@@ -56,9 +56,9 @@ def webhook():
     }
 
     headers = {"Authorization": f"Bearer {token}"}
+if TEST_MODE:
+    print("TEST MODE ORDER:", order)
+    return jsonify({"status": "test_mode", "order": order})
 
-    r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
-
-    return jsonify(r.json())
-
-app.run(host='0.0.0.0', port=10000)
+r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
+return jsonify(r.json())
