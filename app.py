@@ -65,27 +65,4 @@ def webhook():
 
     r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
 
-    return jsonify(r.json())@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-
-    action = data.get("action")
-    symbol = data.get("symbol")
-    qty = data.get("qty")
-
-    token = get_token()
-
-    order = {
-        "symbol": symbol,
-        "qty": qty,
-        "side": action,
-        "type": "MARKET"
-    }
-
-    headers = {"Authorization": f"Bearer {token}"}
-if TEST_MODE:
-    print("TEST MODE ORDER:", order)
-    return jsonify({"status": "test_mode", "order": order})
-
-r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
-return jsonify(r.json())
+    return jsonify(r.json())
