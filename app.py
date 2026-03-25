@@ -66,3 +66,5 @@ def webhook():
     r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
 
     return jsonify(r.json())
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
