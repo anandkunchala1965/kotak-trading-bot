@@ -39,23 +39,22 @@ def get_token():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.json
+        data = request.json
 
-    action = data.get("action")
-    symbol = data.get("symbol")
-    qty = data.get("qty")
+        action = data.get("action")
+        symbol = data.get("symbol")
+        qty = data.get("qty")
 
-    # token = get_token()   # disabled for testing
+        # token = get_token()   # disabled for testing
 
-    order = {
+        order = {
         "symbol": symbol,
         "qty": qty,
         "side": action,
         "type": "MARKET"
-    }
-
+     }
     
-return jsonify({
+    return jsonify({
     "status": "received",
     "order": order
-})
+    })
