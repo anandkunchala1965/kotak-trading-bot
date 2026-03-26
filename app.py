@@ -12,15 +12,37 @@ def get_atm_strike(price):
 # ================================
 # WEBHOOK ROUTE
 # ================================
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.json
+    try:
+        data = request.get_json(force=True)
+    except:
+        data = request.data.decode('utf-8')
+        return {"status": "received raw"}, 200
 
-    # ===== INPUTS =====
+    print("Received:", data)
+
+    # ===== VALIDATIONS =====
     action = data.get("action")
     symbol = data.get("symbol")
-    qty = data.get("qty", 1)
-    price = data.get("price")
+
+    if action not in ["BUY", "SELL", "TEST"]:
+        return jsonify({"error": "Invalid action"}), 400
+
+    allowed_symbols = ["NIFTY", "BANKNIFTY", "CRUDEOIL", "CRUDEOILM"]
+    if symbol not in allowed_symbols:
+        return jsonify({"error": "Invalid symbol"}), 400
+
+    return {"status": "ok"}, 200
+
+
+@app.route('/')
+def home():
+    return "Bot is running"
 
     # ===== VALIDATIONS =====
     if action not in ["BUY", "SELL"]:
