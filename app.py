@@ -31,12 +31,12 @@ def login():
     last_login_time = time.time()
 
 def get_token():
-    global access_token
+    global access_token, last_login_time
 
     if access_token is None or (time.time() - last_login_time > 300):
         login()
+       return access_token
 
-    return access_token
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
