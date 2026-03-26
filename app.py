@@ -40,9 +40,7 @@ def webhook():
     return {"status": "ok"}, 200
 
 
-@app.route('/')
-def home():
-    return "Bot is running"
+
 
     # ===== VALIDATIONS =====
     if action not in ["BUY", "SELL"]:
