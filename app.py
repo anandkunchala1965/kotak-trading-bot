@@ -69,7 +69,7 @@ def webhook():
         }), 400
 
     # 2. ALLOWED SYMBOLS
-    allowed_symbols = ["NIFTY", "BANKNIFTY"]
+    allowed_symbols = ["NIFTY", "BANKNIFTY", "CRUDEOIL", "CRUDEOILM"]
     if symbol not in allowed_symbols:
         return jsonify({
             "error": "Invalid symbol",
