@@ -97,18 +97,19 @@ def webhook():
     atm_strike = round(price / 50) * 50
 
     option_symbol = f"{symbol}_{atm_strike}_{option_type}"
-
-    order = {
+    return jsonify({
+         "status": "simulated",
+         "order = {
         "symbol": option_symbol,
         "qty": qty,
-        "side": "BUY",
+        "side": action
         "type": "MARKET"
     }
 
-    return jsonify({
-        "status": "simulated",
-        "order": order
-    })
+
+                   
+
+
 
 # ==============================
 # ROOT ROUTE (OPTIONAL)
