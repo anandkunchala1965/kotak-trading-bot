@@ -35,7 +35,7 @@ def get_token():
 
     if access_token is None or (time.time() - last_login_time > 300):
         login()
-       return access_token
+    return access_token
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
