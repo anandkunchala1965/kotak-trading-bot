@@ -66,7 +66,7 @@ def webhook():
         return jsonify({
             "error": "Qty too high or missing",
             "allowed_max": 1
-        })
+        }), 400
 
     # 2. ALLOWED SYMBOLS
     allowed_symbols = ["NIFTY", "BANKNIFTY"]
@@ -74,14 +74,14 @@ def webhook():
         return jsonify({
             "error": "Invalid symbol",
             "allowed": allowed_symbols
-        })
+        }), 400
 
     # 3. ACTION VALIDATION
     if action not in ["BUY", "SELL"]:
         return jsonify({
             "error": "Invalid action",
             "allowed": ["BUY", "SELL"]
-        })
+        }), 400
 
     # ==============================
     # CREATE ORDER
