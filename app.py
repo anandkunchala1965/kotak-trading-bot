@@ -52,7 +52,7 @@ def webhook():
         "type": "MARKET"
     }
 
-    return jsonify({   ✅ INSIDE function
+    return jsonify({   
         "status": "received",
         "order": order
     })
