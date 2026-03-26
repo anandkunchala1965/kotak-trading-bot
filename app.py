@@ -62,59 +62,53 @@ def get_atm_strike(price):
 # ==============================
 # WEBHOOK ROUTE
 # ==============================
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
 
-    # ===== INPUTS =====
     action = data.get("action")
     symbol = data.get("symbol")
     qty = data.get("qty", 1)
-    price = data.get("price")  # required for ATM
+    price = data.get("price")
 
     # ===== VALIDATIONS =====
     if action not in ["BUY", "SELL"]:
         return jsonify({"error": "Invalid action"}), 400
 
     if symbol != "NIFTY":
-        return jsonify({"error": "Only NIFTY supported for now"}), 400
+        return jsonify({"error": "Only NIFTY supported"}), 400
 
     if price is None:
-        return jsonify({"error": "Price required for ATM calculation"}), 400
+        return jsonify({"error": "Price required"}), 400
 
     try:
         price = float(price)
     except:
         return jsonify({"error": "Invalid price"}), 400
 
-    # ===== DETERMINE OPTION TYPE =====
-    # BUY → CE (bullish)
-    # SELL → PE (bearish)
+    # ===== OPTION TYPE =====
     if action == "BUY":
         option_type = "CE"
     else:
         option_type = "PE"
 
     # ===== ATM STRIKE =====
-    atm_strike = get_atm_strike(price)
+    atm_strike = round(price / 50) * 50
 
-    # ===== FINAL OPTION SYMBOL =====
     option_symbol = f"{symbol}_{atm_strike}_{option_type}"
 
-    # ===== ORDER STRUCTURE (SIMULATION) =====
     order = {
         "symbol": option_symbol,
         "qty": qty,
-        "side": "BUY",   # Always BUY options
+        "side": "BUY",
         "type": "MARKET"
     }
 
-    # ===== RESPONSE =====
     return jsonify({
         "status": "simulated",
         "order": order
     })
-
 
 # ==============================
 # ROOT ROUTE (OPTIONAL)
