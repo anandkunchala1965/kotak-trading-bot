@@ -98,13 +98,14 @@ def webhook():
 
     option_symbol = f"{symbol}_{atm_strike}_{option_type}"
     return jsonify({
-         "status": "simulated",
-         "order": {
+    "status": "simulated",
+    "order": {
         "symbol": option_symbol,
         "qty": qty,
-        "side": action
+        "side": action,
         "type": "MARKET"
     }
+})
 
 
                    
