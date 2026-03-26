@@ -45,7 +45,7 @@ def webhook():
     symbol = data.get("symbol")
     qty = data.get("qty")
 
-    token = get_token()
+    # token = get_token()   # disabled for testing
 
     order = {
         "symbol": symbol,
@@ -54,20 +54,8 @@ def webhook():
         "type": "MARKET"
     }
 
-    if TEST_MODE:
-        print("TEST MODE ORDER:", order)
-        return jsonify({
-            "status": "test_mode",
-            "order": order
-        })
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    r = requests.post(BASE_URL + "/orders", json=order, headers=headers)
-
-    return jsonify(r.json())
-import os
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    
+return jsonify({
+    "status": "received",
+    "order": order
+})
