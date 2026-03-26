@@ -48,14 +48,87 @@ def get_token():
 
 # ==============================
 # WEBHOOK (MAIN BOT)
+#from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# ==============================
+# HELPER: ATM STRIKE CALCULATION
+# ==============================
+def get_atm_strike(price):
+    return round(price / 50) * 50
+
+
+# ==============================
+# WEBHOOK ROUTE
 # ==============================
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
 
+    # ===== INPUTS =====
     action = data.get("action")
     symbol = data.get("symbol")
-    qty = data.get("qty")
+    qty = data.get("qty", 1)
+    price = data.get("price")  # required for ATM
+
+    # ===== VALIDATIONS =====
+    if action not in ["BUY", "SELL"]:
+        return jsonify({"error": "Invalid action"}), 400
+
+    if symbol != "NIFTY":
+        return jsonify({"error": "Only NIFTY supported for now"}), 400
+
+    if price is None:
+        return jsonify({"error": "Price required for ATM calculation"}), 400
+
+    try:
+        price = float(price)
+    except:
+        return jsonify({"error": "Invalid price"}), 400
+
+    # ===== DETERMINE OPTION TYPE =====
+    # BUY → CE (bullish)
+    # SELL → PE (bearish)
+    if action == "BUY":
+        option_type = "CE"
+    else:
+        option_type = "PE"
+
+    # ===== ATM STRIKE =====
+    atm_strike = get_atm_strike(price)
+
+    # ===== FINAL OPTION SYMBOL =====
+    option_symbol = f"{symbol}_{atm_strike}_{option_type}"
+
+    # ===== ORDER STRUCTURE (SIMULATION) =====
+    order = {
+        "symbol": option_symbol,
+        "qty": qty,
+        "side": "BUY",   # Always BUY options
+        "type": "MARKET"
+    }
+
+    # ===== RESPONSE =====
+    return jsonify({
+        "status": "simulated",
+        "order": order
+    })
+
+
+# ==============================
+# ROOT ROUTE (OPTIONAL)
+# ==============================
+@app.route('/')
+def home():
+    return "WaveGate Bot Running 🚀"
+
+
+# ==============================
+# RUN APP
+# ==============================
+if __name__ == '__main__':
+    app.run(debug=True)
 
     # ==============================
     # SAFETY RULES
