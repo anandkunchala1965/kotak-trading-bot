@@ -2,101 +2,76 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# ================================
-# HELPER FUNCTION
-# ================================
-def get_atm_strike(price):
-    return round(price / 50) * 50
+# ===== CONFIG =====
+LOT_SIZE = 1   # fixed 1 lot for now
 
+# ===== HELPER =====
+def get_atm_strike(price, step=100):
+    return round(price / step) * step
 
-# ================================
-# WEBHOOK ROUTE
-# ================================
-from flask import Flask, request, jsonify
+# ===== MOCK LTP FETCH (replace with real API later) =====
+def get_ltp(symbol):
+    # TEMP: use incoming price
+    return float(symbol.get("price", 0))
 
-app = Flask(__name__)
-
+# ===== WEBHOOK =====
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
         data = request.get_json(force=True)
     except:
-        data = request.data.decode('utf-8')
-        return {"status": "received raw"}, 200
+        return {"error": "Invalid JSON"}, 400
 
     print("Received:", data)
 
-    # ===== VALIDATIONS =====
-    action = data.get("action")
+    option_type = data.get("type")
     symbol = data.get("symbol")
+    price = float(data.get("price", 0))
 
-    if action not in ["BUY", "SELL", "TEST"]:
-        return jsonify({"error": "Invalid action"}), 400
+    if option_type not in ["CE", "PE"]:
+        return jsonify({"error": "Invalid type"}), 400
 
-    allowed_symbols = ["NIFTY", "BANKNIFTY", "CRUDEOIL", "CRUDEOILM"]
-    if symbol not in allowed_symbols:
-        return jsonify({"error": "Invalid symbol"}), 400
+    if price == 0:
+        return jsonify({"error": "Price missing"}), 400
 
-    return {"status": "ok"}, 200
+    # ===== CLEAN SYMBOL =====
+    if ":" in symbol:
+        symbol = symbol.split(":")[1]
 
+    symbol = symbol.replace("1!", "")
 
+    # ===== ATM =====
+    atm = get_atm_strike(price)
 
+    option_symbol = f"{symbol}_{atm}_{option_type}"
 
-    # ===== VALIDATIONS =====
-    if action not in ["BUY", "SELL"]:
-        return jsonify({"error": "Invalid action"}), 400
+    print("Option Selected:", option_symbol)
 
-    allowed_symbols = ["NIFTY", "BANKNIFTY", "CRUDEOIL", "CRUDEOILM"]
-    if symbol not in allowed_symbols:
-        return jsonify({"error": "Invalid symbol"}), 400
+    # ===== LTP BASED LIMIT PRICE =====
+    ltp = price   # using chart price for now
 
-    if price is None:
-        return jsonify({"error": "Price required"}), 400
+    limit_price = round(ltp * 1.01, 2)  # buy slightly above LTP
 
-    try:
-        price = float(price)
-    except:
-        return jsonify({"error": "Invalid price"}), 400
+    print("Placing order at:", limit_price)
 
-    if qty is None or int(qty) > 1:
-        return jsonify({
-            "error": "Qty too high or missing",
-            "allowed_max": 1
-        }), 400
+    # ===== ORDER STRUCTURE (Kotak format later) =====
+    order = {
+        "symbol": option_symbol,
+        "qty": LOT_SIZE,
+        "price": limit_price,
+        "order_type": "LIMIT",
+        "transaction_type": "BUY"
+    }
 
-    # ===== DETERMINE OPTION TYPE =====
-    if action == "BUY":
-        option_type = "CE"
-    else:
-        option_type = "PE"
+    print("Order:", order)
 
-    # ===== ATM STRIKE =====
-    atm_strike = get_atm_strike(price)
+    # TODO: Integrate Kotak Neo API here
 
-    option_symbol = f"{symbol}_{atm_strike}_{option_type}"
-
-    # ===== RESPONSE =====
-    return jsonify({
-        "status": "success",
-        "order": {
-            "symbol": option_symbol,
-            "qty": qty,
-            "side": action,
-            "type": "MARKET"
-        }
-    })
+    return {"status": "order_ready", "order": order}, 200
 
 
-# ================================
-# ROOT ROUTE
-# ================================
 @app.route('/')
 def home():
-    return "WaveGate Bot Running 🚀"
+    return "Manual Elliott Bot Running"
 
-
-# ================================
-# RUN APP
-# ================================
-if __name__ == "__main__":
-    app.run(debug=True)
+    
