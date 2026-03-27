@@ -6,26 +6,50 @@ import urllib.parse
 
 app = Flask(__name__)
 
-# ===== CONFIG =====
-TOKEN = os.getenv("KOTAK_TOKEN")   # Bearer token
-SID = os.getenv("KOTAK_SID")       # session id
-AUTH = os.getenv("KOTAK_AUTH")     # auth token
+# ===== LOGIN DETAILS =====
+USER_ID = os.getenv("KOTAK_USER")
+PASSWORD = os.getenv("KOTAK_PASS")
+TOTP = os.getenv("KOTAK_TOTP")   # from Google Authenticator seed
 
 BASE_URL = "https://mis.kotaksecurities.com"
 LOT_SIZE = 1
 
+# ===== LOGIN FUNCTION =====
+def login():
 
+    url = f"{BASE_URL}/login/1.0/tradeApiLogin"
+
+    payload = {
+        "userId": USER_ID,
+        "password": PASSWORD,
+        "totp": TOTP
+    }
+
+    res = requests.post(url, json=payload)
+    data = res.json()
+
+    print("LOGIN RESPONSE:", data)
+
+    return data
+
+
+# ===== PLACE ORDER =====
 def place_order(symbol, side, price):
+
+    login_data = login()
+
+    token = login_data.get("token")
+    sid = login_data.get("sid")
+    auth = login_data.get("auth")
 
     url = f"{BASE_URL}/quick/order/rule/ms/place"
 
     headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "sid": SID,
-        "Auth": AUTH,
+        "Authorization": f"Bearer {token}",
+        "sid": sid,
+        "Auth": auth,
         "neo-fin-key": "neotradeapi",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json"
+        "Content-Type": "application/x-www-form-urlencoded"
     }
 
     order_data = {
@@ -50,13 +74,12 @@ def place_order(symbol, side, price):
 
     response = requests.post(url, headers=headers, data=payload)
 
-    print("========== ORDER DEBUG ==========")
-    print("RESPONSE:", response.text)
-    print("================================")
+    print("ORDER RESPONSE:", response.text)
 
     return response.text
 
 
+# ===== WEBHOOK =====
 @app.route('/webhook', methods=['POST'])
 def webhook():
 
@@ -69,15 +92,12 @@ def webhook():
 
     result = place_order(symbol, action, price)
 
-    return jsonify({
-        "status": "order sent",
-        "response": result
-    })
+    return jsonify({"result": result})
 
 
 @app.route('/')
 def home():
-    return "Running 🚀"
+    return "Auto Login Bot Running 🚀"
 
 
 if __name__ == "__main__":
