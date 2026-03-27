@@ -19,7 +19,7 @@ def webhook():
         print("📩 Data received:", data)
 
         # 🔐 Step 1: Login & get tokens
-        tokens = login.kotak_login()
+        tokens = login.login()
         print("🔑 Tokens received:", tokens)
 
         return jsonify({
