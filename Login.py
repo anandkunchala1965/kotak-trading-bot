@@ -1,64 +1,63 @@
+import os
 import requests
 import pyotp
-import os
 
-def kotak_login():
+USER = os.getenv("KOTAK_USERID")
+PASSWORD = os.getenv("KOTAK_PASSWORD")
+TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET")
 
-    user_id = os.getenv("KOTAK_USERID")
-    password = os.getenv("KOTAK_PASSWORD")
-    totp_secret = os.getenv("KOTAK_TOTP_SECRET")
+BASE_HEADERS = {
+    "Content-Type": "application/json",
+    "neo-fin-key": "neotradeapi"
+}
 
-    # Generate TOTP
-    totp = pyotp.TOTP(totp_secret).now()
-    print("🔐 TOTP:", totp)
+def generate_totp():
+    return pyotp.TOTP(TOTP_SECRET).now()
 
-    # STEP 1: LOGIN
-    login_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
+def login():
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
 
-    login_headers = {
-        "accept": "application/json",
-        "Content-Type": "application/json",
-        "neo-fin-key": "neotradeapi",
-        "Authorization": "Bearer "  # REQUIRED (even if empty)
+    payload = {
+        "userId": USER,
+        "password": PASSWORD,
+        "otp": generate_totp()
     }
 
-    login_payload = {
-        "userId": user_id,
-        "password": password,
-        "otp": totp
-    }
+    res = requests.post(url, json=payload, headers=BASE_HEADERS)
+    print("LOGIN:", res.text)
 
-    login_res = requests.post(login_url, json=login_payload, headers=login_headers)
-    print("LOGIN RESPONSE:", login_res.text)
+    data = res.json()
 
-    # STEP 2: VALIDATE
-    validate_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
+    if "data" not in data:
+        raise Exception("Login failed")
 
-    validate_headers = {
-        "accept": "application/json",
-        "Content-Type": "application/json",
-        "neo-fin-key": "neotradeapi"
-    }
+    return data["data"]
 
-    validate_payload = {
-        "userId": user_id
-    }
+def validate(login_data):
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
-    validate_res = requests.post(validate_url, json=validate_payload, headers=validate_headers)
-    print("VALIDATE RESPONSE:", validate_res.text)
+    headers = BASE_HEADERS.copy()
+    headers.update({
+        "Auth": login_data["token"],
+        "Sid": login_data["sid"]
+    })
 
-    data = validate_res.json()
+    res = requests.post(url, headers=headers)
+    print("VALIDATE:", res.text)
 
-    auth = data.get("data", {}).get("token")
-    sid = data.get("data", {}).get("sid")
-    base_url = data.get("data", {}).get("baseUrl")
+    data = res.json()
 
-    print("✅ AUTH:", auth)
-    print("✅ SID:", sid)
-    print("✅ BASE URL:", base_url)
+    if "data" not in data:
+        raise Exception("Validation failed")
+
+    return data["data"]
+
+def get_session():
+    login_data = login()
+    validate_data = validate(login_data)
 
     return {
-        "auth": auth,
-        "sid": sid,
-        "baseUrl": base_url
+        "auth": login_data["token"],
+        "sid": login_data["sid"],
+        "base_url": validate_data["baseUrl"]
     }
