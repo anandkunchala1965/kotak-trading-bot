@@ -6,49 +6,17 @@ import urllib.parse
 
 app = Flask(__name__)
 
-# ===== LOGIN DETAILS =====
-USER_ID = os.getenv("KOTAK_USER")
-PASSWORD = os.getenv("KOTAK_PASS")
-TOTP = os.getenv("KOTAK_TOTP")   # from Google Authenticator seed
-
+TOKEN = os.getenv("KOTAK_TOKEN")
 BASE_URL = "https://mis.kotaksecurities.com"
 LOT_SIZE = 1
 
-# ===== LOGIN FUNCTION =====
-def login():
 
-    url = f"{BASE_URL}/login/1.0/tradeApiLogin"
-
-    payload = {
-        "userId": USER_ID,
-        "password": PASSWORD,
-        "totp": TOTP
-    }
-
-    res = requests.post(url, json=payload)
-    data = res.json()
-
-    print("LOGIN RESPONSE:", data)
-
-    return data
-
-
-# ===== PLACE ORDER =====
 def place_order(symbol, side, price):
-
-    login_data = login()
-
-    token = login_data.get("token")
-    sid = login_data.get("sid")
-    auth = login_data.get("auth")
 
     url = f"{BASE_URL}/quick/order/rule/ms/place"
 
     headers = {
-        "Authorization": f"Bearer {token}",
-        "sid": sid,
-        "Auth": auth,
-        "neo-fin-key": "neotradeapi",
+        "Authorization": f"Bearer {TOKEN}",
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
@@ -74,12 +42,15 @@ def place_order(symbol, side, price):
 
     response = requests.post(url, headers=headers, data=payload)
 
-    print("ORDER RESPONSE:", response.text)
+    print("========== FINAL DEBUG ==========")
+    print("SYMBOL:", symbol)
+    print("PRICE:", price)
+    print("RESPONSE:", response.text)
+    print("================================")
 
     return response.text
 
 
-# ===== WEBHOOK =====
 @app.route('/webhook', methods=['POST'])
 def webhook():
 
@@ -97,7 +68,7 @@ def webhook():
 
 @app.route('/')
 def home():
-    return "Auto Login Bot Running 🚀"
+    return "FINAL BOT RUNNING 🚀"
 
 
 if __name__ == "__main__":
