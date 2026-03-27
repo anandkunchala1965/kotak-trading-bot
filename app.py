@@ -1,18 +1,16 @@
 from flask import Flask, request, jsonify
+import os
+import requests
 
-app = Flask(__name__)
+app = Flask(name)
 
 # ===== CONFIG =====
-LOT_SIZE = 1   # fixed 1 lot for now
+TOKEN = os.getenv("KOTAK_TOKEN")
+LOT_SIZE = 1  # 1 lot only
 
 # ===== HELPER =====
 def get_atm_strike(price, step=100):
     return round(price / step) * step
-
-# ===== MOCK LTP FETCH (replace with real API later) =====
-def get_ltp(symbol):
-    # TEMP: use incoming price
-    return float(symbol.get("price", 0))
 
 # ===== WEBHOOK =====
 @app.route('/webhook', methods=['POST'])
@@ -23,55 +21,62 @@ def webhook():
         return {"error": "Invalid JSON"}, 400
 
     print("Received:", data)
+    print("TOKEN:", TOKEN)
 
-    option_type = data.get("type")
-    symbol = data.get("symbol")
+    action = data.get("action")   # BUY or SELL
+    symbol = data.get("symbol")   # NIFTY / BANKNIFTY / CRUDEOIL
     price = float(data.get("price", 0))
 
-    if option_type not in ["CE", "PE"]:
-        return jsonify({"error": "Invalid type"}), 400
+    if action not in ["BUY", "SELL"]:
+        return {"error": "Invalid action"}, 400
+
+    if symbol not in ["NIFTY", "BANKNIFTY", "CRUDEOIL"]:
+        return {"error": "Invalid symbol"}, 400
 
     if price == 0:
-        return jsonify({"error": "Price missing"}), 400
+        return {"error": "Price missing"}, 400
 
-    # ===== CLEAN SYMBOL =====
-    if ":" in symbol:
-        symbol = symbol.split(":")[1]
+    # ===== LOGIC =====
+    option_type = "CE" if action == "BUY" else "PE"
+    atm_strike = get_atm_strike(price)
 
-    symbol = symbol.replace("1!", "")
+    option_symbol = f"{symbol}{atm_strike}{option_type}"
+    print("Trading:", option_symbol)
 
-    # ===== ATM =====
-    atm = get_atm_strike(price)
-
-    option_symbol = f"{symbol}_{atm}_{option_type}"
-
-    print("Option Selected:", option_symbol)
-
-    # ===== LTP BASED LIMIT PRICE =====
-    ltp = price   # using chart price for now
-
-    limit_price = round(ltp * 1.01, 2)  # buy slightly above LTP
-
-    print("Placing order at:", limit_price)
-
-    # ===== ORDER STRUCTURE (Kotak format later) =====
-    order = {
-        "symbol": option_symbol,
-        "qty": LOT_SIZE,
-        "price": limit_price,
-        "order_type": "LIMIT",
-        "transaction_type": "BUY"
+    # ===== HEADERS =====
+    headers = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json"
     }
 
-    print("Order:", order)
+    # ===== ORDER PAYLOAD (EDIT IF NEEDED LATER) =====
+    order_data = {
+        "symbol": option_symbol,
+        "qty": LOT_SIZE,
+        "orderType": "LIMIT",
+        "price": price,   # LTP based
+        "transactionType": "BUY",
+        "product": "MIS"
+    }
 
-    # TODO: Integrate Kotak Neo API here
+    print("Order Data:", order_data)
 
-    return {"status": "order_ready", "order": order}, 200
+    # ===== API CALL =====
+    try:
+        response = requests.post(
+            "https://api.kotak.com/trade/order",  # ⚠️ confirm endpoint later
+            json=order_data,
+            headers=headers
+        )
+        print("API Response:", response.text)
+
+    except Exception as e:
+        print("API Error:", str(e))
+        return {"error": "API failed"}, 500
+
+    return {"status": "order sent"}, 200
 
 
 @app.route('/')
 def home():
-    return "Manual Elliott Bot Running"
-
-    
+    return "Running
