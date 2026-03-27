@@ -7,20 +7,24 @@ import urllib.parse
 app = Flask(__name__)
 
 # ===== CONFIG =====
-TOKEN = os.getenv("KOTAK_TOKEN")   # set this in Render ENV
+TOKEN = os.getenv("KOTAK_TOKEN")   # Bearer token
+SID = os.getenv("KOTAK_SID")       # session id
+AUTH = os.getenv("KOTAK_AUTH")     # auth token
+
 BASE_URL = "https://mis.kotaksecurities.com"
 LOT_SIZE = 1
 
 
-# ===== PLACE ORDER FUNCTION =====
 def place_order(symbol, side, price):
 
     url = f"{BASE_URL}/quick/order/rule/ms/place"
 
     headers = {
         "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/x-www-form-urlencoded",
+        "sid": SID,
+        "Auth": AUTH,
         "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json"
     }
 
@@ -40,7 +44,6 @@ def place_order(symbol, side, price):
         "tt": "B" if side == "BUY" else "S"
     }
 
-    # ✅ CORRECT ENCODING (MOST IMPORTANT)
     payload = urllib.parse.urlencode({
         "jData": json.dumps(order_data)
     })
@@ -48,48 +51,34 @@ def place_order(symbol, side, price):
     response = requests.post(url, headers=headers, data=payload)
 
     print("========== ORDER DEBUG ==========")
-    print("SYMBOL:", symbol)
-    print("SIDE:", side)
-    print("PRICE:", price)
     print("RESPONSE:", response.text)
     print("================================")
 
     return response.text
 
 
-# ===== WEBHOOK =====
 @app.route('/webhook', methods=['POST'])
 def webhook():
 
     data = request.json
-    print("Received Alert:", data)
+    print("Received:", data)
 
     action = data.get("action")
     symbol = data.get("symbol")
-    price = data.get("price")
-
-    # validation
-    if not action or not symbol:
-        return jsonify({"error": "Missing action/symbol"}), 400
-
-    # fallback price (if not sent)
-    if price is None:
-        price = 0
+    price = data.get("price", 0)
 
     result = place_order(symbol, action, price)
 
     return jsonify({
         "status": "order sent",
-        "broker_response": result
+        "response": result
     })
 
 
-# ===== HEALTH CHECK =====
 @app.route('/')
 def home():
-    return "Kotak Bot Running 🚀"
+    return "Running 🚀"
 
 
-# ===== RUN =====
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
