@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from login import kotak_login
+from login import get_session
 
 app = Flask(__name__)
 
@@ -15,15 +15,12 @@ def webhook():
         data = request.json
         print("📩 Data received:", data)
 
-        tokens = kotak_login()
+        session = get_session()
 
-        print("🔑 Tokens:", tokens)
+        print("🔑 Tokens:", session)
 
         return jsonify({"status": "success"})
 
     except Exception as e:
         print("❌ ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
