@@ -26,21 +26,23 @@ def place_order(symbol, side, price):
         "Accept": "application/json"
     }
 
-    order_data = {
-        "am": "NO",
-        "dq": "0",
-        "es": "nse_fo",          # Options segment
-        "mp": "0",
-        "pc": "MIS",
-        "pf": "N",
-        "pr": str(price),        # LIMIT price
-        "pt": "LMT",             # LIMIT order
-        "qt": str(LOT_SIZE),
-        "rt": "DAY",
-        "tp": "0",
-        "ts": symbol,            # Option symbol
-        "tt": "B" if side == "BUY" else "S"
-    }
+order_data = {
+    "am": "NO",
+    "dq": "0",
+    "es": "nse_fo",
+    "mp": "0",
+    "pc": "MIS",
+    "pf": "N",
+    "pr": str(price),
+    "pt": "L",              # 🔥 FIXED
+    "ot": "L",              # 🔥 ADDED
+    "prc": str(price),      # 🔥 ADDED
+    "qt": str(LOT_SIZE),
+    "rt": "DAY",
+    "tp": "0",
+    "ts": symbol,
+    "tt": "B" if side == "BUY" else "S"
+}
 
     # 🔥 CRITICAL: URL ENCODE jData
     payload = urllib.parse.urlencode({
