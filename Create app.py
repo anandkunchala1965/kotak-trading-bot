@@ -17,7 +17,7 @@ def webhook():
 
         session = get_session()
 
-        print("🔑 Tokens:", session)
+        print("🔑 SESSION:", session)
 
         return jsonify({"status": "success"})
 
