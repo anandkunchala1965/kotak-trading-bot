@@ -10,15 +10,16 @@ def kotak_login():
 
     # Generate TOTP
     totp = pyotp.TOTP(totp_secret).now()
-
     print("🔐 TOTP:", totp)
 
     # STEP 1: LOGIN
     login_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
 
     login_headers = {
+        "accept": "application/json",
         "Content-Type": "application/json",
-        "neo-fin-key": "neotradeapi"
+        "neo-fin-key": "neotradeapi",
+        "Authorization": "Bearer "  # REQUIRED (even if empty)
     }
 
     login_payload = {
@@ -28,12 +29,13 @@ def kotak_login():
     }
 
     login_res = requests.post(login_url, json=login_payload, headers=login_headers)
-    print("LOGIN:", login_res.text)
+    print("LOGIN RESPONSE:", login_res.text)
 
     # STEP 2: VALIDATE
     validate_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
     validate_headers = {
+        "accept": "application/json",
         "Content-Type": "application/json",
         "neo-fin-key": "neotradeapi"
     }
@@ -43,12 +45,20 @@ def kotak_login():
     }
 
     validate_res = requests.post(validate_url, json=validate_payload, headers=validate_headers)
-    print("VALIDATE:", validate_res.text)
+    print("VALIDATE RESPONSE:", validate_res.text)
 
     data = validate_res.json()
 
+    auth = data.get("data", {}).get("token")
+    sid = data.get("data", {}).get("sid")
+    base_url = data.get("data", {}).get("baseUrl")
+
+    print("✅ AUTH:", auth)
+    print("✅ SID:", sid)
+    print("✅ BASE URL:", base_url)
+
     return {
-        "auth": data.get("data", {}).get("token"),
-        "sid": data.get("data", {}).get("sid"),
-        "baseUrl": data.get("data", {}).get("baseUrl")
+        "auth": auth,
+        "sid": sid,
+        "baseUrl": base_url
     }
