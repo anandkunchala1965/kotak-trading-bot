@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import json
+import urllib.parse
 
 app = Flask(__name__)
 
 # ===== CONFIG =====
-TOKEN = os.getenv("KOTAK_TOKEN")
-BASE_URL = "https://mis.kotaksecurities.com"   # correct base URL
+TOKEN = os.getenv("KOTAK_TOKEN")   # set this in Render ENV
+BASE_URL = "https://mis.kotaksecurities.com"
 LOT_SIZE = 1
 
 
@@ -39,14 +40,20 @@ def place_order(symbol, side, price):
         "tt": "B" if side == "BUY" else "S"
     }
 
-    # IMPORTANT: do NOT urlencode manually
-    payload = {
+    # ✅ CORRECT ENCODING (MOST IMPORTANT)
+    payload = urllib.parse.urlencode({
         "jData": json.dumps(order_data)
-    }
+    })
 
     response = requests.post(url, headers=headers, data=payload)
 
-    print("Order Response:", response.text)
+    print("========== ORDER DEBUG ==========")
+    print("SYMBOL:", symbol)
+    print("SIDE:", side)
+    print("PRICE:", price)
+    print("RESPONSE:", response.text)
+    print("================================")
+
     return response.text
 
 
@@ -55,24 +62,34 @@ def place_order(symbol, side, price):
 def webhook():
 
     data = request.json
-    print("Received:", data)
+    print("Received Alert:", data)
 
     action = data.get("action")
     symbol = data.get("symbol")
     price = data.get("price")
 
+    # validation
     if not action or not symbol:
-        return jsonify({"error": "Missing data"}), 400
+        return jsonify({"error": "Missing action/symbol"}), 400
+
+    # fallback price (if not sent)
+    if price is None:
+        price = 0
 
     result = place_order(symbol, action, price)
 
     return jsonify({
         "status": "order sent",
-        "response": result
+        "broker_response": result
     })
 
 
 # ===== HEALTH CHECK =====
 @app.route('/')
 def home():
-    return "Running"
+    return "Kotak Bot Running 🚀"
+
+
+# ===== RUN =====
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
