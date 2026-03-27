@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import os
 import requests
 
-app = Flask(name)
+app = Flask(__name__)
 
 # ===== CONFIG =====
 TOKEN = os.getenv("KOTAK_TOKEN")
