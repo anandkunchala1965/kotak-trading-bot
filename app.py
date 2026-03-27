@@ -2,88 +2,84 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import json
-import urllib.parse
 
 app = Flask(__name__)
 
-# ===== CONFIG =====
-TOKEN = os.getenv("KOTAK_TOKEN")
-BASE_URL = "https://mis.kotaksecurities.com"
-LOT_SIZE = 1
+# =========================
+# ENV VARIABLES (SET IN RENDER)
+# =========================
+AUTH = os.environ.get("KOTAK_AUTH")
+SID = os.environ.get("KOTAK_SID")
+BASE_URL = os.environ.get("KOTAK_BASE_URL")  # from login response
+
+# =========================
+# HEALTH CHECK
+# =========================
+@app.route("/", methods=["GET"])
+def home():
+    return "Kotak Trading Bot Running 🚀"
 
 
-# ===== PLACE ORDER FUNCTION =====
-def place_order(symbol, side, price):
-
-    url = f"{BASE_URL}/quick/order/rule/ms/place"
-
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-
-    # ===== FINAL CORRECT ORDER STRUCTURE =====
-    order_data = {
-        "am": "NO",
-        "dq": "0",
-        "es": "nse_fo",          # F&O segment
-        "mp": "0",
-        "pc": "MIS",
-        "pf": "N",
-        "pr": price,             # ✅ number, not string
-        "pt": "LMT",
-        "qt": str(LOT_SIZE),
-        "rt": "DAY",
-        "tp": "0",
-        "ts": symbol,            # MUST be exact Kotak symbol
-        "tt": "B" if side == "BUY" else "S",
-        "oi": "I"                # ✅ IMPORTANT FIELD
-    }
-
-    payload = urllib.parse.urlencode({
-        "jData": json.dumps(order_data)
-    })
-
-    response = requests.post(url, headers=headers, data=payload)
-
-    print("========== FINAL DEBUG ==========")
-    print("SYMBOL:", symbol)
-    print("PRICE:", price)
-    print("PAYLOAD:", order_data)
-    print("RESPONSE:", response.text)
-    print("================================")
-
-    return response.text
-
-
-# ===== WEBHOOK =====
-@app.route('/webhook', methods=['POST'])
+# =========================
+# WEBHOOK (TRADINGVIEW)
+# =========================
+@app.route("/webhook", methods=["POST"])
 def webhook():
-
     data = request.json
+
     print("Received:", data)
 
-    action = data.get("action")
+    action = data.get("action")  # BUY / SELL
     symbol = data.get("symbol")
     price = data.get("price", 0)
 
-    if not action or not symbol:
-        return jsonify({"error": "Missing data"}), 400
+    # =========================
+    # BUILD jData (IMPORTANT)
+    # =========================
+    jData = {
+        "am": "NO",
+        "dq": "0",
+        "es": "nse_fo",
+        "mp": "0",
+        "pc": "MIS",
+        "pf": "N",
+        "pr": str(price),           # LIMIT price
+        "pt": "L",                  # L = LIMIT (use MKT if needed)
+        "qt": "1",
+        "rt": "DAY",
+        "tp": "0",
+        "ts": symbol,               # VERY IMPORTANT
+        "tt": "B" if action == "BUY" else "S"
+    }
 
-    result = place_order(symbol, action, price)
+    print("FINAL PAYLOAD:", jData)
+
+    # =========================
+    # API CALL
+    # =========================
+    url = f"{BASE_URL}/quick/order/rule/ms/place"
+
+    headers = {
+        "accept": "application/json",
+        "Auth": AUTH,
+        "Sid": SID,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    payload = {
+        "jData": json.dumps(jData)   # 🔥 THIS FIXES YOUR ERROR
+    }
+
+    response = requests.post(url, headers=headers, data=payload)
+
+    print("RESPONSE:", response.text)
 
     return jsonify({
-        "status": "order sent",
-        "response": result
+        "status": "sent",
+        "kotak_response": response.json()
     })
 
 
-# ===== HEALTH CHECK =====
-@app.route('/')
-def home():
-    return "FINAL BOT RUNNING 🚀"
-
-
-# ===== RUN =====
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
