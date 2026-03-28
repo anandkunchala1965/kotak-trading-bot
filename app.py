@@ -22,7 +22,9 @@ def login_step1():
     url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
     headers = {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": CLIENT_ID,
+        "NeoFinKey": CLIENT_ID
     }
 
     payload = {
@@ -45,7 +47,6 @@ def login_step1():
     sid = data["data"]["sid"]
 
     return token, sid
-
 # ========= LOGIN STEP 2 =========
 def login_step2(token, sid):
     url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validateMPIN"
