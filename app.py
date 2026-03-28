@@ -14,22 +14,20 @@ TOTP_SECRET = os.getenv("TOTP_SECRET")
 # ========= GENERATE TOTP =========
 def generate_totp():
     if not TOTP_SECRET:
-        raise Exception("TOTP_SECRET missing in environment")
+        raise Exception("TOTP_SECRET missing")
     return pyotp.TOTP(TOTP_SECRET).now()
 
 # ========= LOGIN STEP 1 =========
 def login_step1():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
+    url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validate"
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": CLIENT_ID,
-        "NeoFinKey": CLIENT_ID
+        "Authorization": CLIENT_ID   # ✅ REQUIRED (no Bearer)
     }
 
     payload = {
         "mobileNumber": MOBILE,
-        "ucc": CLIENT_ID,
         "totp": generate_totp()
     }
 
@@ -47,6 +45,7 @@ def login_step1():
     sid = data["data"]["sid"]
 
     return token, sid
+
 # ========= LOGIN STEP 2 =========
 def login_step2(token, sid):
     url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validateMPIN"
@@ -77,8 +76,7 @@ def login_step2(token, sid):
 # ========= FULL LOGIN =========
 def login():
     token, sid = login_step1()
-    final_data = login_step2(token, sid)
-    return final_data
+    return login_step2(token, sid)
 
 # ========= TEST ROUTE =========
 @app.route("/test-login")
