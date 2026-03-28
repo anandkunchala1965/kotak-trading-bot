@@ -5,95 +5,63 @@ import pyotp
 
 app = Flask(__name__)
 
-# ========= ENV VARIABLES =========
+# ===== ENV VARIABLES =====
 CLIENT_ID = os.getenv("CLIENT_ID")
 MOBILE = os.getenv("MOBILE")
-MPIN = os.getenv("MPIN")
-TOTP_SECRET = os.getenv("TOTP_SECRET")
+TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET")
 
-# ========= GENERATE TOTP =========
+# ===== GENERATE TOTP =====
 def generate_totp():
     if not TOTP_SECRET:
         raise Exception("TOTP_SECRET missing")
     return pyotp.TOTP(TOTP_SECRET).now()
 
-# ========= LOGIN STEP 1 =========
-def login_step1():
-    url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validate"
+# ===== STEP 0: TRADE API LOGIN =====
+def step0_login():
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": CLIENT_ID   # ✅ REQUIRED (no Bearer)
+        "neo-fin-key": "neotradeapi"
     }
 
     payload = {
         "mobileNumber": MOBILE,
+        "ucc": CLIENT_ID,
         "totp": generate_totp()
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    res = requests.post(url, json=payload, headers=headers)
+    data = res.json()
 
-    print("STEP1 STATUS:", response.status_code)
-    print("STEP1 RESPONSE:", response.text)
+    print("STEP 0 STATUS:", res.status_code)
+    print("STEP 0 RESPONSE:", data)
 
-    data = response.json()
+    if res.status_code != 200:
+        raise Exception("Step 0 failed")
 
-    if "data" not in data:
-        raise Exception(f"STEP1 FAILED: {data}")
+    return data
 
-    token = data["data"]["token"]
-    sid = data["data"]["sid"]
+# ===== TEST ROUTE =====
+@app.route("/")
+def home():
+    return "Kotak API running"
 
-    return token, sid
-
-# ========= LOGIN STEP 2 =========
-def login_step2(token, sid):
-    url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validateMPIN"
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": CLIENT_ID,
-        "Sid": sid,
-        "Auth": token
-    }
-
-    payload = {
-        "mpin": MPIN
-    }
-
-    response = requests.post(url, json=payload, headers=headers)
-
-    print("STEP2 STATUS:", response.status_code)
-    print("STEP2 RESPONSE:", response.text)
-
-    data = response.json()
-
-    if "data" not in data:
-        raise Exception(f"STEP2 FAILED: {data}")
-
-    return data["data"]
-
-# ========= FULL LOGIN =========
-def login():
-    token, sid = login_step1()
-    return login_step2(token, sid)
-
-# ========= TEST ROUTE =========
 @app.route("/test-login")
 def test_login():
     try:
-        result = login()
+        step0_data = step0_login()
+
         return jsonify({
-            "status": "success",
-            "data": result
+            "status": "SUCCESS",
+            "step0": step0_data
         })
+
     except Exception as e:
         return jsonify({
-            "status": "error",
+            "status": "ERROR",
             "message": str(e)
         }), 500
 
-# ========= ROOT =========
-@app.route("/")
-def home():
-    return "Kotak Trading Bot Running 🚀"
+if __name__ == "__main__":
+    app.run()
