@@ -6,8 +6,8 @@ import pyotp
 app = Flask(__name__)
 
 # ===== ENV VARIABLES =====
-CLIENT_ID = os.getenv("CLIENT_ID")
-MOBILE = os.getenv("MOBILE")
+CLIENT_ID = os.getenv("CLIENT_ID")        # e.g. L0130
+MOBILE = os.getenv("MOBILE")              # e.g. +919000552327
 TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET")
 
 # ===== GENERATE TOTP =====
@@ -16,13 +16,14 @@ def generate_totp():
         raise Exception("TOTP_SECRET missing")
     return pyotp.TOTP(TOTP_SECRET).now()
 
-# ===== STEP 0: TRADE API LOGIN =====
+# ===== STEP 0: LOGIN =====
 def step0_login():
     url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
 
     headers = {
         "Content-Type": "application/json",
-        "neo-fin-key": "neotradeapi"
+        "neo-fin-key": "neotradeapi",
+        "Authorization": CLIENT_ID   # 🔥 VERY IMPORTANT
     }
 
     payload = {
@@ -32,17 +33,25 @@ def step0_login():
     }
 
     res = requests.post(url, json=payload, headers=headers)
-    data = res.json()
+
+    try:
+        data = res.json()
+    except:
+        data = res.text
 
     print("STEP 0 STATUS:", res.status_code)
     print("STEP 0 RESPONSE:", data)
 
     if res.status_code != 200:
-        raise Exception("Step 0 failed")
+        return {
+            "error": "Step 0 failed",
+            "status_code": res.status_code,
+            "response": data
+        }
 
     return data
 
-# ===== TEST ROUTE =====
+# ===== ROUTES =====
 @app.route("/")
 def home():
     return "Kotak API running"
@@ -50,11 +59,11 @@ def home():
 @app.route("/test-login")
 def test_login():
     try:
-        step0_data = step0_login()
+        result = step0_login()
 
         return jsonify({
             "status": "SUCCESS",
-            "step0": step0_data
+            "data": result
         })
 
     except Exception as e:
@@ -63,5 +72,6 @@ def test_login():
             "message": str(e)
         }), 500
 
+# ===== RUN =====
 if __name__ == "__main__":
     app.run()
