@@ -6,8 +6,9 @@ import pyotp
 app = Flask(__name__)
 
 # ===== ENV VARIABLES =====
-CLIENT_ID = os.getenv("CLIENT_ID")        # e.g. L0130
-MOBILE = os.getenv("MOBILE")              # e.g. +919000552327
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+UCC = os.getenv("UCC")
+MOBILE = os.getenv("MOBILE")
 TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET")
 
 # ===== GENERATE TOTP =====
@@ -16,19 +17,19 @@ def generate_totp():
         raise Exception("TOTP_SECRET missing")
     return pyotp.TOTP(TOTP_SECRET).now()
 
-# ===== STEP 0: LOGIN =====
+# ===== STEP 0 LOGIN =====
 def step0_login():
     url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
 
     headers = {
         "Content-Type": "application/json",
         "neo-fin-key": "neotradeapi",
-        "Authorization": CLIENT_ID   # 🔥 VERY IMPORTANT
+        "Authorization": ACCESS_TOKEN   # ✅ CORRECT
     }
 
     payload = {
         "mobileNumber": MOBILE,
-        "ucc": CLIENT_ID,
+        "ucc": UCC,
         "totp": generate_totp()
     }
 
@@ -60,12 +61,10 @@ def home():
 def test_login():
     try:
         result = step0_login()
-
         return jsonify({
             "status": "SUCCESS",
             "data": result
         })
-
     except Exception as e:
         return jsonify({
             "status": "ERROR",
