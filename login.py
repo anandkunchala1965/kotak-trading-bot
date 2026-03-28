@@ -1,41 +1,70 @@
-import os
 import requests
 import pyotp
+import os
 
-# ===== ENV VARIABLES =====
-USER = os.getenv("KOTAK_USERID")          # mobile number
-PASSWORD = os.getenv("KOTAK_PASSWORD")    # UCC (client ID)
-TOTP_SECRET = os.getenv("KOTAK_TOTP_SECRET")
-ACCESS_TOKEN = os.getenv("KOTAK_ACCESS_TOKEN")
+# ENV VARIABLES
+MOBILE = os.getenv("MOBILE")
+CLIENT_ID = os.getenv("CLIENT_ID")
+MPIN = os.getenv("MPIN")
+TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-# ===== GENERATE TOTP =====
+BASE_HEADERS = {
+    "Content-Type": "application/json",
+    "neo-fin-key": "neotradeapi"
+}
+
+# STEP 1 - GENERATE TOTP
 def generate_totp():
     return pyotp.TOTP(TOTP_SECRET).now()
 
-# ===== LOGIN FUNCTION =====
-def login():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
+# STEP 2 - LOGIN STEP 1 (VALIDATE)
+def login_step1():
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
     payload = {
-        "mobileNumber": USER,
-        "ucc": PASSWORD,
+        "mobileNumber": MOBILE,
+        "ucc": CLIENT_ID,
         "totp": generate_totp()
     }
 
-    headers = {
-        "Content-Type": "application/json",
-        "neo-fin-key": "neotradeapi",
-        "Authorization": f"Bearer {ACCESS_TOKEN}"
+    res = requests.post(url, json=payload, headers=BASE_HEADERS)
+
+    print("STEP1 STATUS:", res.status_code)
+    print("STEP1 RESPONSE:", res.text)
+
+    data = res.json()
+
+    token = data["data"]["token"]
+    sid = data["data"]["sid"]
+
+    return token, sid
+
+# STEP 3 - LOGIN STEP 2 (MPIN AUTH)
+def login_step2(token, sid):
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiAuthenticate"
+
+    headers = BASE_HEADERS.copy()
+    headers["Authorization"] = f"Bearer {token}"
+    headers["Sid"] = sid
+
+    payload = {
+        "mpin": MPIN
     }
 
     res = requests.post(url, json=payload, headers=headers)
 
-    print("🔐 LOGIN STATUS:", res.status_code)
-    print("🔐 LOGIN RESPONSE:", res.text)
+    print("STEP2 STATUS:", res.status_code)
+    print("STEP2 RESPONSE:", res.text)
 
     data = res.json()
 
-    if "data" not in data:
-        raise Exception("Login failed: " + str(data))
+    trade_token = data["data"]["token"]
 
-    return data["data"]
+    return trade_token, sid
+
+# FINAL FUNCTION
+def login():
+    token, sid = login_step1()
+    trade_token, sid = login_step2(token, sid)
+
+    return trade_token, sid
