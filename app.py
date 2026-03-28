@@ -19,15 +19,15 @@ def generate_totp():
 
 # ========= LOGIN STEP 1 =========
 def login_step1():
-    url = "https://mis.kotaksecurities.com/login/1.0/login/v2/validate"
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": CLIENT_ID   # ✅ IMPORTANT (NO Bearer)
+        "Content-Type": "application/json"
     }
 
     payload = {
         "mobileNumber": MOBILE,
+        "ucc": CLIENT_ID,
         "totp": generate_totp()
     }
 
