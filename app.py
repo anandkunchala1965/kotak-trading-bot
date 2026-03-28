@@ -1,12 +1,19 @@
-from flask import Flask, request, jsonify
-import login
+from flask import Flask
+from login import login
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
-    return "Kotak bot is running 🚀"
+    return "Bot is running"
 
+@app.route("/test-login")
+def test_login():
+    token, sid = login()
+    return {
+        "token": token,
+        "sid": sid
+    }
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
