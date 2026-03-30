@@ -5,7 +5,10 @@ import os
 
 app = Flask(__name__)
 
-# ENV VARIABLES
+# ================================
+# 🔐 ENV VARIABLES (SET IN RENDER)
+# ================================
+CONSUMER_KEY = os.getenv("CONSUMER_KEY")
 MOBILE = os.getenv("MOBILE")
 UCC = os.getenv("UCC")
 MPIN = os.getenv("MPIN")
@@ -16,11 +19,19 @@ BASE_HEADERS = {
     "neo-fin-key": "neotradeapi"
 }
 
+# ================================
+# 🔢 GENERATE TOTP
+# ================================
 def generate_totp():
+    if not TOTP_SECRET:
+        raise Exception("TOTP_SECRET not set in environment")
     return pyotp.TOTP(TOTP_SECRET).now()
 
+# ================================
+# 🔑 STEP 1 - VALIDATE USER
+# ================================
 def login_step1():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
+    url = "https://mis.kotaksecurities.com/login/1.0/validate"
 
     payload = {
         "mobileNumber": MOBILE,
@@ -29,46 +40,52 @@ def login_step1():
     }
 
     res = requests.post(url, json=payload, headers=BASE_HEADERS)
-
+    
     return {
-        "status": res.status_code,
-        "data": res.json()
+        "status_code": res.status_code,
+        "response": res.json()
     }
 
+# ================================
+# 🔑 STEP 2 - COMPLETE LOGIN
+# ================================
 def login_step2():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiAuthenticate"
+    url = "https://mis.kotaksecurities.com/login/1.0/login"
 
     payload = {
+        "mobileNumber": MOBILE,
+        "ucc": UCC,
         "mpin": MPIN
     }
 
     res = requests.post(url, json=payload, headers=BASE_HEADERS)
 
     return {
-        "status": res.status_code,
-        "data": res.json()
+        "status_code": res.status_code,
+        "response": res.json()
     }
 
-@app.route("/test-login")
+# ================================
+# 🧪 TEST ROUTE
+# ================================
+@app.route('/test-login', methods=['GET'])
 def test_login():
-    step1 = login_step1()
+    try:
+        step1 = login_step1()
+        step2 = login_step2()
 
-    if step1["status"] != 200:
         return jsonify({
-            "error": "Step1 failed",
-            "details": step1
+            "step1": step1,
+            "step2": step2
         })
 
-    step2 = login_step2()
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        })
 
-    return jsonify({
-        "step1": step1,
-        "step2": step2
-    })
-
-@app.route("/")
-def home():
-    return "Running ✅"
-
+# ================================
+# 🚀 RUN
+# ================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
