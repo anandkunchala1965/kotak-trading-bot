@@ -68,6 +68,7 @@ def login_step2():
 # ================================
 # 🧪 TEST ROUTE
 # ================================
+
 @app.route('/test-login', methods=['GET'])
 def test_login():
     try:
@@ -75,17 +76,13 @@ def test_login():
         step2 = login_step2()
 
         return jsonify({
+            "success": True,
             "step1": step1,
             "step2": step2
         })
 
     except Exception as e:
         return jsonify({
+            "success": False,
             "error": str(e)
         })
-
-# ================================
-# 🚀 RUN
-# ================================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
