@@ -1,107 +1,71 @@
 from flask import Flask
 import requests
-import pyotp
 import os
 
 app = Flask(__name__)
 
-# =========================
-# ENV VARIABLES
-# =========================
-MOBILE = os.getenv("MOBILE")
+API_TOKEN = os.getenv("API_TOKEN")
 UCC = os.getenv("UCC")
 MPIN = os.getenv("MPIN")
-TOTP_SECRET = os.getenv("TOTP_SECRET")
+TOTP = os.getenv("TOTP")
 
-HEADERS = {
-    "Content-Type": "application/json",
-    "neo-fin-key": "neotradeapi"
-}
+BASE_URL = "https://mis.kotaksecurities.com"
 
-# =========================
-# GENERATE TOTP
-# =========================
-def generate_totp():
-    try:
-        if not TOTP_SECRET:
-            return "TOTP_SECRET_MISSING"
-        return pyotp.TOTP(TOTP_SECRET).now()
-    except Exception as e:
-        return f"TOTP_ERROR: {str(e)}"
-
-# =========================
-# HOME ROUTE
-# =========================
 @app.route("/")
 def home():
-    return "✅ SERVER LIVE"
+    return "SERVER LIVE"
 
-# =========================
-# TEST ROUTE
-# =========================
-@app.route("/test-login")
-def test_login():
-    return "✅ TEST LOGIN ROUTE WORKING"
-
-# =========================
-# FULL LOGIN ROUTE
-# =========================
 @app.route("/full-login")
 def full_login():
+    result = "<h1>🚀 LOGIN RESULT</h1>"
 
-    step1_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
-    step2_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
+    # STEP 1 - TOTP LOGIN
+    url1 = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-    totp = generate_totp()
+    headers1 = {
+        "Authorization": API_TOKEN,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/json"
+    }
 
     payload1 = {
-        "mobileNumber": MOBILE,
+        "mobileNumber": "",
         "ucc": UCC,
-        "totp": totp
+        "totp": TOTP
+    }
+
+    res1 = requests.post(url1, json=payload1, headers=headers1)
+
+    result += f"<h2>STEP 1 (TOTP)</h2><pre>{res1.text}</pre>"
+
+    try:
+        data1 = res1.json().get("data", {})
+        sid = data1.get("sid")
+        token = data1.get("token")
+    except:
+        return result + "<h3>❌ STEP 1 FAILED</h3>"
+
+    # STEP 2 - MPIN LOGIN
+    url2 = f"{BASE_URL}/login/1.0/tradeApiValidate"
+
+    headers2 = {
+        "Authorization": API_TOKEN,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/json",
+        "Sid": sid,
+        "Auth": token
     }
 
     payload2 = {
-        "mobileNumber": MOBILE,
-        "ucc": UCC,
         "mpin": MPIN
     }
 
-    try:
-        res1 = requests.post(step1_url, json=payload1, headers=HEADERS)
-        res2 = requests.post(step2_url, json=payload2, headers=HEADERS)
+    res2 = requests.post(url2, json=payload2, headers=headers2)
 
-        return f"""
-        <html>
-        <body style="background:black;color:lime;font-size:16px;">
-        
-        <h2>🚀 LOGIN RESULT</h2>
+    result += f"<h2>STEP 2 (MPIN)</h2><pre>{res2.text}</pre>"
 
-        <h3>STEP 1 (TOTP VALIDATION)</h3>
-        <pre>Status: {res1.status_code}</pre>
-        <pre>{res1.text}</pre>
+    return result
 
-        <hr>
 
-        <h3>STEP 2 (MPIN LOGIN)</h3>
-        <pre>Status: {res2.status_code}</pre>
-        <pre>{res2.text}</pre>
-
-        </body>
-        </html>
-        """
-
-    except Exception as e:
-        return f"""
-        <html>
-        <body style="background:black;color:red;">
-        <h2>ERROR OCCURRED</h2>
-        <pre>{str(e)}</pre>
-        </body>
-        </html>
-        """
-
-# =========================
-# RUN (for local testing)
-# =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
