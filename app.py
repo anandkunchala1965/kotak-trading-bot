@@ -17,71 +17,55 @@ HEADERS = {
 }
 
 def generate_totp():
-    if not TOTP_SECRET:
-        return "MISSING_TOTP_SECRET"
     try:
         return pyotp.TOTP(TOTP_SECRET).now()
-    except Exception as e:
-        return f"TOTP_ERROR: {str(e)}"
+    except:
+        return "ERROR_TOTP"
 
-def login_step1():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
-    payload = {
+@app.route("/")
+def home():
+    return "✅ SERVER LIVE"
+
+@app.route("/test-login")
+def test_login():
+    return "✅ TEST LOGIN ROUTE WORKING"
+
+@app.route("/full-login")
+def full_login():
+
+    step1_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
+    step2_url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
+
+    totp = generate_totp()
+
+    payload1 = {
         "mobileNumber": MOBILE,
         "ucc": UCC,
-        "totp": generate_totp()
+        "totp": totp
     }
-    try:
-        res = requests.post(url, json=payload, headers=HEADERS)
-        return f"STATUS: {res.status_code}\n{res.text}"
-    except Exception as e:
-        return f"ERROR: {str(e)}"
 
-def login_step2():
-    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin"
-    payload = {
+    payload2 = {
         "mobileNumber": MOBILE,
         "ucc": UCC,
         "mpin": MPIN
     }
+
     try:
-        res = requests.post(url, json=payload, headers=HEADERS)
-        return f"STATUS: {res.status_code}\n{res.text}"
-    except Exception as e:
-        return f"ERROR: {str(e)}"
+        res1 = requests.post(step1_url, json=payload1, headers=HEADERS)
+        res2 = requests.post(step2_url, json=payload2, headers=HEADERS)
 
-@app.route('/test-login')
-def test_login():
-
-    if not MOBILE or not UCC or not MPIN or not TOTP_SECRET:
         return f"""
-        <h2 style="color:red;">ENV VARIABLES MISSING</h2>
-        <pre>
-MOBILE: {MOBILE}
-UCC: {UCC}
-MPIN: {"SET" if MPIN else None}
-TOTP_SECRET: {"SET" if TOTP_SECRET else None}
-        </pre>
+        <html><body style='background:black;color:lime'>
+        <h2>LOGIN RESULT</h2>
+
+        <h3>STEP 1</h3>
+        <pre>{res1.status_code} {res1.text}</pre>
+
+        <h3>STEP 2</h3>
+        <pre>{res2.status_code} {res2.text}</pre>
+
+        </body></html>
         """
 
-    step1 = login_step1()
-    step2 = login_step2()
-
-    return f"""
-    <html>
-    <body style="background:black;color:lime;font-size:18px;">
-    <h2>LOGIN RESULT</h2>
-
-    <h3>STEP 1</h3>
-    <pre>{step1}</pre>
-
-    <h3>STEP 2</h3>
-    <pre>{step2}</pre>
-
-    </body>
-    </html>
-    """
-
-@app.route('/')
-def home():
-    return "Server is LIVE 🚀"
+    except Exception as e:
+        return f"ERROR: {str(e)}"
