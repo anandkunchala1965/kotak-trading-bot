@@ -11,7 +11,7 @@ MPIN = os.getenv("MPIN")
 TOTP = os.getenv("TOTP")
 
 # ⚠️ PUT YOUR REGISTERED MOBILE NUMBER HERE (WITH +91)
-MOBILE = "+91XXXXXXXXXX"
+MOBILE = "+919000552327"
 
 BASE_URL = "https://mis.kotaksecurities.com"
 
