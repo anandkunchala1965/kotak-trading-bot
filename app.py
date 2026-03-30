@@ -1,71 +1,74 @@
 from flask import Flask, jsonify
-from neo_api_client import NeoAPI
+import requests
 import pyotp
 import os
 
 app = Flask(__name__)
 
-# ==============================
-# 🔐 ENV VARIABLES (SET IN RENDER)
-# ==============================
-
-CONSUMER_KEY = os.getenv("CONSUMER_KEY")
+# ENV VARIABLES
 MOBILE = os.getenv("MOBILE")
 UCC = os.getenv("UCC")
-TOTP_SECRET = os.getenv("TOTP_SECRET")
 MPIN = os.getenv("MPIN")
+TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-# ==============================
-# 🔑 LOGIN FUNCTION
-# ==============================
+BASE_HEADERS = {
+    "Content-Type": "application/json",
+    "neo-fin-key": "neotradeapi"
+}
 
-def kotak_login():
-    try:
-        # Initialize client
-        client = NeoAPI(
-            environment='prod',
-            consumer_key=CONSUMER_KEY
-        )
+def generate_totp():
+    return pyotp.TOTP(TOTP_SECRET).now()
 
-        # Generate TOTP
-        totp = pyotp.TOTP(TOTP_SECRET).now()
+def login_step1():
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
-        # Step 1: Login
-        login_response = client.totp_login(
-            mobile_number=MOBILE,
-            ucc=UCC,
-            totp=totp
-        )
+    payload = {
+        "mobileNumber": MOBILE,
+        "ucc": UCC,
+        "totp": generate_totp()
+    }
 
-        # Step 2: Validate MPIN
-        validate_response = client.totp_validate(
-            mpin=MPIN
-        )
+    res = requests.post(url, json=payload, headers=BASE_HEADERS)
 
-        return {
-            "login": login_response,
-            "validate": validate_response
-        }
+    return {
+        "status": res.status_code,
+        "data": res.json()
+    }
 
-    except Exception as e:
-        return {"error": str(e)}
+def login_step2():
+    url = "https://mis.kotaksecurities.com/login/1.0/tradeApiAuthenticate"
 
-# ==============================
-# 🌐 ROUTES
-# ==============================
+    payload = {
+        "mpin": MPIN
+    }
 
-@app.route('/')
-def home():
-    return "✅ Kotak Trading Bot Running"
+    res = requests.post(url, json=payload, headers=BASE_HEADERS)
 
-@app.route('/test-login', methods=['GET', 'POST'])
+    return {
+        "status": res.status_code,
+        "data": res.json()
+    }
+
+@app.route("/test-login")
 def test_login():
-    result = kotak_login()
-    return jsonify(result)
+    step1 = login_step1()
 
-# ==============================
-# 🚀 RUN APP
-# ==============================
+    if step1["status"] != 200:
+        return jsonify({
+            "error": "Step1 failed",
+            "details": step1
+        })
+
+    step2 = login_step2()
+
+    return jsonify({
+        "step1": step1,
+        "step2": step2
+    })
+
+@app.route("/")
+def home():
+    return "Running ✅"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
