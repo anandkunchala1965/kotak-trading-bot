@@ -18,7 +18,10 @@ BASE_HEADERS = {
 
 # STEP 1: Generate TOTP
 def generate_totp():
-    return pyotp.TOTP(TOTP_SECRET).now()
+    try:
+        return pyotp.TOTP(TOTP_SECRET).now()
+    except Exception as e:
+        return str(e)
 
 # STEP 2: Login Step 1 (Validate TOTP)
 def login_step1():
@@ -30,12 +33,16 @@ def login_step1():
         "totp": generate_totp()
     }
 
-    response = requests.post(url, json=payload, headers=BASE_HEADERS)
-    
-    return {
-        "status_code": response.status_code,
-        "response": response.json()
-    }
+    try:
+        response = requests.post(url, json=payload, headers=BASE_HEADERS)
+        return {
+            "status_code": response.status_code,
+            "response": response.json()
+        }
+    except Exception as e:
+        return {
+            "error": str(e)
+        }
 
 # STEP 3: Login Step 2 (MPIN Validation)
 def login_step2():
@@ -45,19 +52,24 @@ def login_step2():
         "mpin": MPIN
     }
 
-    response = requests.post(url, json=payload, headers=BASE_HEADERS)
-
-    return {
-        "status_code": response.status_code,
-        "response": response.json()
-    }
+    try:
+        response = requests.post(url, json=payload, headers=BASE_HEADERS)
+        return {
+            "status_code": response.status_code,
+            "response": response.json()
+        }
+    except Exception as e:
+        return {
+            "error": str(e)
+        }
 
 # TEST ROUTE
 @app.route("/test-login", methods=["GET"])
 def test_login():
     step1 = login_step1()
 
-    if step1["status_code"] != 200:
+    # If step1 fails, return immediately
+    if "error" in step1 or step1.get("status_code") != 200:
         return jsonify({
             "step": "step1_failed",
             "details": step1
@@ -75,5 +87,6 @@ def test_login():
 def home():
     return "Kotak API Running 🚀"
 
+# REQUIRED FOR RENDER
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
