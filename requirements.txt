@@ -2,3 +2,4 @@ flask
 requests
 pyotp
 gunicorn
+git+https://github.com/Kotak-Neo/kotak-neo-api.git
