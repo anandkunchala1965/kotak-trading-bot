@@ -40,12 +40,11 @@ def login_step1():
     }
 
     res = requests.post(url, json=payload, headers=BASE_HEADERS)
-    
+
     return {
         "status_code": res.status_code,
-        "response": res.json()
+        "text": res.text   # 👈 VERY IMPORTANT
     }
-
 # ================================
 # 🔑 STEP 2 - COMPLETE LOGIN
 # ================================
@@ -62,7 +61,7 @@ def login_step2():
 
     return {
         "status_code": res.status_code,
-        "response": res.json()
+        "text": res.text   # 👈 VERY IMPORTANT
     }
 
 # ================================
