@@ -1,70 +1,79 @@
+from flask import Flask, jsonify
 import requests
 import pyotp
 import os
 
+app = Flask(__name__)
+
 # ENV VARIABLES
-MOBILE = os.getenv("MOBILE")
-CLIENT_ID = os.getenv("CLIENT_ID")
-MPIN = os.getenv("MPIN")
-TOTP_SECRET = os.getenv("TOTP_SECRET")
+MOBILE = os.getenv("MOBILE")        # +91XXXXXXXXXX
+UCC = os.getenv("UCC")              # Example: L0130
+MPIN = os.getenv("MPIN")            # 4 digit MPIN
+TOTP_SECRET = os.getenv("TOTP_SECRET")  # From QR code
 
 BASE_HEADERS = {
     "Content-Type": "application/json",
     "neo-fin-key": "neotradeapi"
 }
 
-# STEP 1 - GENERATE TOTP
+# STEP 1: Generate TOTP
 def generate_totp():
     return pyotp.TOTP(TOTP_SECRET).now()
 
-# STEP 2 - LOGIN STEP 1 (VALIDATE)
+# STEP 2: Login Step 1 (Validate TOTP)
 def login_step1():
     url = "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate"
 
     payload = {
         "mobileNumber": MOBILE,
-        "ucc": CLIENT_ID,
+        "ucc": UCC,
         "totp": generate_totp()
     }
 
-    res = requests.post(url, json=payload, headers=BASE_HEADERS)
+    response = requests.post(url, json=payload, headers=BASE_HEADERS)
+    
+    return {
+        "status_code": response.status_code,
+        "response": response.json()
+    }
 
-    print("STEP1 STATUS:", res.status_code)
-    print("STEP1 RESPONSE:", res.text)
-
-    data = res.json()
-
-    token = data["data"]["token"]
-    sid = data["data"]["sid"]
-
-    return token, sid
-
-# STEP 3 - LOGIN STEP 2 (MPIN AUTH)
-def login_step2(token, sid):
+# STEP 3: Login Step 2 (MPIN Validation)
+def login_step2():
     url = "https://mis.kotaksecurities.com/login/1.0/tradeApiAuthenticate"
-
-    headers = BASE_HEADERS.copy()
-    headers["Authorization"] = f"Bearer {token}"
-    headers["Sid"] = sid
 
     payload = {
         "mpin": MPIN
     }
 
-    res = requests.post(url, json=payload, headers=headers)
+    response = requests.post(url, json=payload, headers=BASE_HEADERS)
 
-    print("STEP2 STATUS:", res.status_code)
-    print("STEP2 RESPONSE:", res.text)
+    return {
+        "status_code": response.status_code,
+        "response": response.json()
+    }
 
-    data = res.json()
+# TEST ROUTE
+@app.route("/test-login", methods=["GET"])
+def test_login():
+    step1 = login_step1()
 
-    trade_token = data["data"]["token"]
+    if step1["status_code"] != 200:
+        return jsonify({
+            "step": "step1_failed",
+            "details": step1
+        })
 
-    return trade_token, sid
+    step2 = login_step2()
 
-# FINAL FUNCTION
-def login():
-    token, sid = login_step1()
-    trade_token, sid = login_step2(token, sid)
+    return jsonify({
+        "step1": step1,
+        "step2": step2
+    })
 
-    return trade_token, sid
+# ROOT ROUTE
+@app.route("/")
+def home():
+    return "Kotak API Running 🚀"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
