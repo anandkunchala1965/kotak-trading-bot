@@ -92,7 +92,7 @@ def nifty_buy():
         login_res = requests.post(login_url, json=payload, headers=headers)
         login_data = login_res.json()
 
-        if login_data.get("status") != "success":
+        if data.get("data", {}).get("status") != "success":
             return jsonify({
                 "error": "Login failed",
                 "response": login_data
