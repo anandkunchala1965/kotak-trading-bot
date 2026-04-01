@@ -100,14 +100,15 @@ def nifty_buy():
         }
 
         order_payload = {
-            "exchangeSegment": "nse_fo",
-            "product": "MIS",
-            "price": "0",
-            "orderType": "MARKET",
-            "quantity": "50",   # 1 LOT (NIFTY)
-            "validity": "DAY",
-            "tradingSymbol": "NIFTY24APR22500CE",
-            "transactionType": "BUY"
+    "exchangeSegment": "nse_fo",
+    "product": "MIS",
+    "orderType": "LIMIT",
+    "price": "10",
+    "quantity": "65",
+    "validity": "DAY",
+    "tradingSymbol": "NIFTY26APR22700CE",
+    "transactionType": "BUY"
+}
         }
 
         order_res = requests.post(order_url, json=order_payload, headers=order_headers)
