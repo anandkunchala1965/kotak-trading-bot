@@ -8,9 +8,10 @@ app = Flask(__name__)
 # ENV VARIABLES
 API_TOKEN = os.getenv("API_TOKEN")
 UCC = os.getenv("UCC")
+MPIN = os.getenv("MPIN")
 TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-MOBILE = "+919000055237"   # your number
+MOBILE = "+9190000552327"   # your number
 BASE_URL = "https://mis.kotaksecurities.com"
 
 
@@ -19,32 +20,54 @@ def home():
     return "✅ SERVER LIVE"
 
 
-# 🔐 LOGIN
+# 🔐 LOGIN FUNCTION (MPIN FLOW - FINAL)
 def get_access_token():
-    totp = pyotp.TOTP(TOTP_SECRET).now()
+    try:
+        totp = pyotp.TOTP(TOTP_SECRET).now()
 
-    url = f"{BASE_URL}/login/1.0/tradeApiLogin"
+        headers = {
+            "Authorization": API_TOKEN,
+            "neo-fin-key": "neotradeapi",
+            "Content-Type": "application/json"
+        }
 
-    headers = {
-        "Authorization": API_TOKEN,
-        "neo-fin-key": "neotradeapi",
-        "Content-Type": "application/json"
-    }
+        # STEP 1: REQUEST LOGIN
+        url1 = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-    payload = {
-        "mobileNumber": MOBILE,
-        "ucc": UCC,
-        "totp": totp
-    }
+        payload1 = {
+            "mobileNumber": MOBILE,
+            "ucc": UCC,
+            "totp": totp
+        }
 
-    res = requests.post(url, json=payload, headers=headers)
-    data = res.json()
+        res1 = requests.post(url1, json=payload1, headers=headers)
+        data1 = res1.json()
 
-    if data.get("data", {}).get("status") != "success":
-        return None, data
+        request_id = data1.get("data", {}).get("requestId")
 
-    token = data.get("data", {}).get("token")
-    return token, None
+        if not request_id:
+            return None, data1
+
+        # STEP 2: VALIDATE LOGIN WITH MPIN
+        url2 = f"{BASE_URL}/login/1.0/validateLogin"
+
+        payload2 = {
+            "requestId": request_id,
+            "mpin": MPIN
+        }
+
+        res2 = requests.post(url2, json=payload2, headers=headers)
+        data2 = res2.json()
+
+        token = data2.get("data", {}).get("token")
+
+        if not token:
+            return None, data2
+
+        return token, None
+
+    except Exception as e:
+        return None, str(e)
 
 
 @app.route("/full-login")
@@ -87,9 +110,9 @@ def nifty_buy():
             "exchangeSegment": "nse_fo",
             "product": "MIS",
             "orderType": "MARKET",
-            "quantity": "1",   # 🔴 FIRST TEST WITH 1
+            "quantity": "1",   # ⚠️ TEST FIRST
             "validity": "DAY",
-            "tradingSymbol": "NIFTY07APR22700CE",
+            "tradingSymbol": "NIFTY24APR22700CE",
             "transactionType": "BUY"
         }
 
