@@ -108,7 +108,7 @@ def nifty_buy():
     "validity": "DAY",
     "tradingSymbol": "NIFTY26APR22700CE",
     "transactionType": "BUY"
-}
+
         }
 
         order_res = requests.post(order_url, json=order_payload, headers=order_headers)
