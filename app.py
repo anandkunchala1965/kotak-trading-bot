@@ -22,56 +22,36 @@ def home():
 @app.route("/full-login")
 def full_login():
     try:
-        # =========================
-        # STEP 1: GENERATE TOTP
-        # =========================
         totp = pyotp.TOTP(TOTP_SECRET).now()
 
-        url1 = f"{BASE_URL}/login/1.0/tradeApiLogin"
+        url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-        headers1 = {
+        headers = {
             "Authorization": API_TOKEN,
             "neo-fin-key": "neotradeapi",
             "Content-Type": "application/json"
         }
 
-        payload1 = {
+        payload = {
             "mobileNumber": MOBILE,
             "ucc": UCC,
             "totp": totp
         }
 
-        res1 = requests.post(url1, json=payload1, headers=headers1)
-        data1 = res1.json()
+        res = requests.post(url, json=payload, headers=headers)
+        data = res.json()
 
-        # 🔴 Extract requestId
-        request_id = data1.get("data", {}).get("requestId")
+        if data.get("status") != "success":
+            return jsonify({
+                "error": "Login failed",
+                "response": data
+            })
 
-        if not request_id:
-            return jsonify({"error": "Step 1 failed", "response": data1})
-
-        # =========================
-        # STEP 2: VALIDATE LOGIN
-        # =========================
-        url2 = f"{BASE_URL}/login/1.0/validateLogin"
-
-        payload2 = {
-            "requestId": request_id,
-            "mpin": MPIN
-        }
-
-        res2 = requests.post(url2, json=payload2, headers=headers1)
-        data2 = res2.json()
-
-        # 🔴 Final token
-        access_token = data2.get("data", {}).get("token")
-
-        if not access_token:
-            return jsonify({"error": "Step 2 failed", "response": data2})
+        token = data.get("data", {}).get("token")
 
         return jsonify({
-            "message": "✅ LOGIN SUCCESS",
-            "access_token": access_token
+            "message": "LOGIN SUCCESS",
+            "access_token": token
         })
 
     except Exception as e:
