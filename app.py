@@ -13,20 +13,23 @@ UCC = os.getenv("UCC")
 MPIN = os.getenv("MPIN")
 TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-# IMPORTANT: NO +91
 MOBILE = "+919000552327"
-
 BASE_URL = "https://mis.kotaksecurities.com"
 
 # =========================
-# HOME ROUTE
+# SAFE MODE (IMPORTANT)
+# =========================
+SAFE_MODE = True
+
+# =========================
+# HOME
 # =========================
 @app.route("/")
 def home():
     return "✅ SERVER LIVE"
 
 # =========================
-# FULL LOGIN (TEST)
+# LOGIN
 # =========================
 @app.route("/full-login")
 def full_login():
@@ -67,7 +70,7 @@ def full_login():
         return jsonify({"error": str(e)})
 
 # =========================
-# NIFTY BUY
+# NIFTY BUY (SAFE)
 # =========================
 @app.route("/nifty-buy")
 def nifty_buy():
@@ -92,7 +95,7 @@ def nifty_buy():
         login_res = requests.post(login_url, json=payload, headers=headers)
         login_data = login_res.json()
 
-        if data.get("data", {}).get("status") != "success":
+        if login_data.get("data", {}).get("status") != "success":
             return jsonify({
                 "error": "Login failed",
                 "response": login_data
@@ -100,7 +103,30 @@ def nifty_buy():
 
         access_token = login_data.get("data", {}).get("token")
 
-        # STEP 2: PLACE ORDER
+        # STEP 2: PREPARE ORDER
+        order_payload = {
+            "exchangeSegment": "nse_fo",
+            "product": "MIS",
+            "orderType": "LIMIT",
+            "price": "10",
+            "quantity": "65",
+            "validity": "DAY",
+            "tradingSymbol": "NIFTY24APR22700CE",
+            "transactionType": "BUY"
+        }
+
+        # =========================
+        # SAFE MODE BLOCK
+        # =========================
+        if SAFE_MODE:
+            return jsonify({
+                "message": "SAFE MODE ON - Order NOT placed",
+                "order_payload": order_payload
+            })
+
+        # =========================
+        # REAL ORDER (WILL NOT RUN NOW)
+        # =========================
         order_url = f"{BASE_URL}/orders/1.0/place"
 
         order_headers = {
@@ -108,17 +134,6 @@ def nifty_buy():
             "neo-fin-key": "neotradeapi",
             "Content-Type": "application/json",
             "access-token": access_token
-        }
-
-        order_payload = {
-            "exchangeSegment": "nse_fo",
-            "product": "MIS",
-            "orderType": "LIMIT",
-            "price": "10",
-            "quantity": "65",   # 1 lot NIFTY
-            "validity": "DAY",
-            "tradingSymbol": "NIFTY07APR22700CE",
-            "transactionType": "BUY"
         }
 
         order_res = requests.post(order_url, json=order_payload, headers=order_headers)
