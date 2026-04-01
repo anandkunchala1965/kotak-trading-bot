@@ -56,3 +56,64 @@ def full_login():
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
+@app.route("/nifty-buy")
+def nifty_buy():
+    try:
+        totp = pyotp.TOTP(TOTP_SECRET).now()
+
+        # ======================
+        # LOGIN
+        # ======================
+        login_url = f"{BASE_URL}/login/1.0/tradeApiLogin"
+
+        headers = {
+            "Authorization": API_TOKEN,
+            "neo-fin-key": "neotradeapi",
+            "Content-Type": "application/json"
+        }
+
+        login_payload = {
+            "mobileNumber": MOBILE,
+            "ucc": UCC,
+            "totp": totp
+        }
+
+        login_res = requests.post(login_url, json=login_payload, headers=headers)
+        login_data = login_res.json()
+
+        if login_data.get("data", {}).get("status") != "success":
+            return jsonify({"error": "Login failed", "response": login_data})
+
+        access_token = login_data.get("data", {}).get("token")
+
+        # ======================
+        # PLACE NIFTY ORDER
+        # ======================
+        order_url = f"{BASE_URL}/orders/1.0/place"
+
+        order_headers = {
+            "Authorization": API_TOKEN,
+            "neo-fin-key": "neotradeapi",
+            "Content-Type": "application/json",
+            "access-token": access_token
+        }
+
+        order_payload = {
+            "exchangeSegment": "nse_fo",
+            "product": "MIS",
+            "price": "0",
+            "orderType": "MARKET",
+            "quantity": "50",   # 1 LOT (NIFTY)
+            "validity": "DAY",
+            "tradingSymbol": "NIFTY24APR22500CE",
+            "transactionType": "BUY"
+        }
+
+        order_res = requests.post(order_url, json=order_payload, headers=order_headers)
+        order_data = order_res.json()
+
+        return jsonify(order_data)
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
