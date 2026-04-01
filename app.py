@@ -87,16 +87,38 @@ def full_login():
         return jsonify({"error": str(e)})
 
 
-@app.route("/nifty-buy")
-def nifty_buy():
+@app.route("/buy-order")
+def buy_order():
     try:
-        # STEP 1: LOGIN
-        access_token, error = get_access_token()
+        totp = pyotp.TOTP(TOTP_SECRET).now()
 
-        if error:
-            return jsonify({"error": "Login failed", "response": error})
+        # LOGIN AGAIN TO GET TOKEN
+        login_url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-        # STEP 2: PLACE ORDER
+        headers = {
+            "Authorization": API_TOKEN,
+            "neo-fin-key": "neotradeapi",
+            "Content-Type": "application/json"
+        }
+
+        login_payload = {
+            "mobileNumber": MOBILE,
+            "ucc": UCC,
+            "totp": totp
+        }
+
+        login_res = requests.post(login_url, json=login_payload, headers=headers)
+        login_data = login_res.json()
+
+        if login_data.get("data", {}).get("status") != "success":
+            return jsonify({"error": "Login failed", "response": login_data})
+
+        access_token = login_data.get("data", {}).get("token")
+
+        # ======================
+        # PLACE ORDER
+        # ======================
+
         order_url = f"{BASE_URL}/orders/1.0/place"
 
         order_headers = {
@@ -107,18 +129,20 @@ def nifty_buy():
         }
 
         order_payload = {
-            "exchangeSegment": "nse_fo",
+            "exchangeSegment": "nse_cm",
             "product": "MIS",
+            "price": "0",
             "orderType": "MARKET",
-            "quantity": "1",   # ⚠️ TEST FIRST
+            "quantity": "1",
             "validity": "DAY",
-            "tradingSymbol": "NIFTY24APR22700CE",
+            "tradingSymbol": "RELIANCE",
             "transactionType": "BUY"
         }
 
         order_res = requests.post(order_url, json=order_payload, headers=order_headers)
+        order_data = order_res.json()
 
-        return jsonify(order_res.json())
+        return jsonify(order_data)
 
     except Exception as e:
         return jsonify({"error": str(e)})
