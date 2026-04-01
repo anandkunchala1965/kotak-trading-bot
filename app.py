@@ -1,29 +1,39 @@
-from flask import Flask, jsonify
+import os
 import requests
 import pyotp
-import os
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
+# =========================
 # ENV VARIABLES
+# =========================
 API_TOKEN = os.getenv("API_TOKEN")
 UCC = os.getenv("UCC")
 MPIN = os.getenv("MPIN")
 TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-MOBILE = "+919000552327"   # your number
+# IMPORTANT: NO +91
+MOBILE = "+919000552327"
+
 BASE_URL = "https://mis.kotaksecurities.com"
 
-
+# =========================
+# HOME ROUTE
+# =========================
 @app.route("/")
 def home():
     return "✅ SERVER LIVE"
 
-
-# 🔐 LOGIN FUNCTION (MPIN FLOW - FINAL)
-def get_access_token():
+# =========================
+# FULL LOGIN (TEST)
+# =========================
+@app.route("/full-login")
+def full_login():
     try:
         totp = pyotp.TOTP(TOTP_SECRET).now()
+
+        url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
         headers = {
             "Authorization": API_TOKEN,
@@ -31,52 +41,22 @@ def get_access_token():
             "Content-Type": "application/json"
         }
 
-        # STEP 1: REQUEST LOGIN
-        url1 = f"{BASE_URL}/login/1.0/tradeApiLogin"
-
-        payload1 = {
+        payload = {
             "mobileNumber": MOBILE,
             "ucc": UCC,
             "totp": totp
         }
 
-        res1 = requests.post(url1, json=payload1, headers=headers)
-        data1 = res1.json()
+        res = requests.post(url, json=payload, headers=headers)
+        data = res.json()
 
-        request_id = data1.get("data", {}).get("requestId")
+        if data.get("status") != "success":
+            return jsonify({
+                "error": "Login failed",
+                "response": data
+            })
 
-        if not request_id:
-            return None, data1
-
-        # STEP 2: VALIDATE LOGIN WITH MPIN
-        url2 = f"{BASE_URL}/login/1.0/validateLogin"
-
-        payload2 = {
-            "requestId": request_id,
-            "mpin": MPIN
-        }
-
-        res2 = requests.post(url2, json=payload2, headers=headers)
-        data2 = res2.json()
-
-        token = data2.get("data", {}).get("token")
-
-        if not token:
-            return None, data2
-
-        return token, None
-
-    except Exception as e:
-        return None, str(e)
-
-
-@app.route("/full-login")
-def full_login():
-    try:
-        token, error = get_access_token()
-
-        if error:
-            return jsonify({"error": "Login failed", "response": error})
+        token = data.get("data", {}).get("token")
 
         return jsonify({
             "message": "LOGIN SUCCESS",
@@ -86,13 +66,15 @@ def full_login():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-
-@app.route("/buy-order")
-def buy_order():
+# =========================
+# NIFTY BUY
+# =========================
+@app.route("/nifty-buy")
+def nifty_buy():
     try:
+        # STEP 1: LOGIN
         totp = pyotp.TOTP(TOTP_SECRET).now()
 
-        # LOGIN AGAIN TO GET TOKEN
         login_url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
         headers = {
@@ -101,24 +83,24 @@ def buy_order():
             "Content-Type": "application/json"
         }
 
-        login_payload = {
+        payload = {
             "mobileNumber": MOBILE,
             "ucc": UCC,
             "totp": totp
         }
 
-        login_res = requests.post(login_url, json=login_payload, headers=headers)
+        login_res = requests.post(login_url, json=payload, headers=headers)
         login_data = login_res.json()
 
-        if login_data.get("data", {}).get("status") != "success":
-            return jsonify({"error": "Login failed", "response": login_data})
+        if login_data.get("status") != "success":
+            return jsonify({
+                "error": "Login failed",
+                "response": login_data
+            })
 
         access_token = login_data.get("data", {}).get("token")
 
-        # ======================
-        # PLACE ORDER
-        # ======================
-
+        # STEP 2: PLACE ORDER
         order_url = f"{BASE_URL}/orders/1.0/place"
 
         order_headers = {
@@ -129,13 +111,13 @@ def buy_order():
         }
 
         order_payload = {
-            "exchangeSegment": "nse_cm",
+            "exchangeSegment": "nse_fo",
             "product": "MIS",
-            "price": "0",
-            "orderType": "MARKET",
-            "quantity": "1",
+            "orderType": "LIMIT",
+            "price": "10",
+            "quantity": "65",   # 1 lot NIFTY
             "validity": "DAY",
-            "tradingSymbol": "RELIANCE",
+            "tradingSymbol": "NIFTY07APR22700CE",
             "transactionType": "BUY"
         }
 
