@@ -11,7 +11,7 @@ UCC = os.getenv("UCC")
 MPIN = os.getenv("MPIN")
 TOTP_SECRET = os.getenv("TOTP_SECRET")
 
-MOBILE = "+9190000552327"   # your number
+MOBILE = "+919000552327"   # your number
 BASE_URL = "https://mis.kotaksecurities.com"
 
 
