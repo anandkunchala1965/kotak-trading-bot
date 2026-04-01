@@ -50,7 +50,7 @@ def full_login():
         res = requests.post(url, json=payload, headers=headers)
         data = res.json()
 
-        if data.get("status") != "success":
+        if data.get("data", {}).get("status") != "success":
             return jsonify({
                 "error": "Login failed",
                 "response": data
