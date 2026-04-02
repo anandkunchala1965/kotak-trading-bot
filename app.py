@@ -81,7 +81,7 @@ def buy():
     }
 
     # ================= SAFE MODE =================
-    if SAFE_MODE:
+    if SAFE_MODE:False
         return jsonify({
             "msg": "SAFE MODE ON",
             "symbol": symbol,
