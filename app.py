@@ -5,9 +5,9 @@ import requests
 
 app = Flask(__name__)
 
-# ================================
+# ==============================
 # ENV VARIABLES
-# ================================
+# ==============================
 API_KEY = os.environ.get("API_KEY")
 API_SECRET = os.environ.get("API_SECRET")
 MOBILE = os.environ.get("MOBILE_NUMBER")
@@ -16,102 +16,135 @@ TOTP_SECRET = os.environ.get("TOTP")
 
 BASE_URL = "https://gw-napi.kotaksecurities.com"
 
-SAFE_MODE = True  # 🔴 KEEP TRUE FIRST
+# ==============================
+# SAFE MODE (IMPORTANT)
+# ==============================
+SAFE_MODE = True   # 🔴 KEEP TRUE FIRST
 
-# ================================
+# ==============================
 # LOGIN FUNCTION
-# ================================
+# ==============================
 def login():
-    totp = pyotp.TOTP(TOTP_SECRET).now()
+    try:
+        totp = pyotp.TOTP(TOTP_SECRET).now()
 
-    url = f"{BASE_URL}/login/1.0/tradeApiLogin"
+        url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-    headers = {
-        "Authorization": API_KEY,
-        "neo-fin-key": "neotradeapi",
-        "Content-Type": "application/json"
-    }
+        payload = {
+            "mobileNumber": MOBILE,
+            "password": PASSWORD
+        }
 
-    payload = {
-        "mobileNumber": MOBILE,
-        "password": PASSWORD,
-        "totp": totp
-    }
+        headers = {
+            "Authorization": API_KEY,
+            "Content-Type": "application/json"
+        }
 
-    res = requests.post(url, json=payload, headers=headers)
-    data = res.json()
+        res = requests.post(url, json=payload, headers=headers)
 
-    if data.get("data", {}).get("status") != "success":
+        data = res.json()
+
+        if "data" not in data:
+            return None
+
+        request_id = data["data"]["requestId"]
+
+        # 2FA
+        url_2fa = f"{BASE_URL}/login/1.0/2fa"
+
+        payload_2fa = {
+            "requestId": request_id,
+            "otp": totp
+        }
+
+        res2 = requests.post(url_2fa, json=payload_2fa, headers=headers)
+
+        data2 = res2.json()
+
+        if "data" not in data2:
+            return None
+
+        return data2["data"]["accessToken"]
+
+    except Exception as e:
+        print("Login Error:", e)
         return None
 
-    return data.get("data", {}).get("token")
-
-
-# ================================
+# ==============================
 # HOME
-# ================================
+# ==============================
 @app.route("/")
 def home():
-    return "✅ SERVER LIVE"
+    return {"message": "BOT LIVE"}
 
+# ==============================
+# TEST LOGIN
+# ==============================
+@app.route("/test-login")
+def test_login():
+    token = login()
+    if not token:
+        return {"error": "Login failed"}
+    return {"token": token}
 
-# ================================
-# NIFTY BUY (FINAL)
-# ================================
+# ==============================
+# BUY ORDER
+# ==============================
 @app.route("/nifty-buy")
 def buy():
 
-    # 👉 MANUAL PRICE (for now)
-    nifty_price = 22236
+    try:
+        # 👉 MANUAL PRICE
+        nifty_price = 22236
 
-    # 👉 ATM strike
-    strike = round(nifty_price / 100) * 100
+        # 👉 STRIKE
+        strike = round(nifty_price / 100) * 100
 
-    # 👉 EXPIRY
-    symbol = f"NIFTY28APR26{strike}CE"
+        # 👉 SYMBOL
+        symbol = f"NIFTY28APR26{strike}CE"
 
-    order_payload = {
-        "exchangeSegment": "nse_fo",
-        "product": "MIS",
-        "orderType": "MARKET",
-        "quantity": "65",
-        "validity": "DAY",
-        "tradingSymbol": symbol,
-        "transactionType": "BUY"
-    }
+        order_payload = {
+            "exchangeSegment": "nse_fo",
+            "product": "MIS",
+            "orderType": "MARKET",
+            "quantity": "65",
+            "validity": "DAY",
+            "tradingSymbol": symbol,
+            "transactionType": "BUY"
+        }
 
-    # ========= SAFE MODE =========
-    SAFE_MODE = False   # ✅ INSIDE FUNCTION
+        # ================= SAFE MODE =================
+        if SAFE_MODE:
+            return jsonify({
+                "msg": "SAFE MODE ON",
+                "symbol": symbol,
+                "qty": 65
+            })
 
-    if SAFE_MODE:
-        return jsonify({
-            "msg": "SAFE MODE ON",
-            "symbol": symbol,
-            "qty": 65
-        })
+        # ================= REAL ORDER =================
+        token = login()
 
-    # ========= REAL ORDER =========
-    token = login()
+        if not token:
+            return jsonify({"error": "Login failed"})
 
-    if not token:
-        return jsonify({"error": "Login failed"})
+        order_url = f"{BASE_URL}/orders/1.0/place"
 
-    order_url = f"{BASE_URL}/orders/1.0/place"
+        headers = {
+            "Authorization": API_KEY,
+            "neo-fin-key": "neotradeapi",
+            "Content-Type": "application/json",
+            "access-token": token
+        }
 
-    headers = {
-        "Authorization": API_KEY,
-        "neo-fin-key": "neotradeapi",
-        "Content-Type": "application/json",
-        "access-token": token
-    }
+        res = requests.post(order_url, json=order_payload, headers=headers)
 
-    res = requests.post(order_url, json=order_payload, headers=headers)
+        return jsonify(res.json())
 
-    return jsonify(res.json())
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
-
-# ================================
+# ==============================
 # RUN
-# ================================
+# ==============================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
