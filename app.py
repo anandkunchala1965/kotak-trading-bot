@@ -1,63 +1,75 @@
-from flask import Flask
+from flask import Flask, jsonify
 import os
 import pyotp
-from neo_api_client import NeoAPI
+import requests
 
 app = Flask(__name__)
 
-# ==============================
+# ================================
 # ENV VARIABLES
-# ==============================
+# ================================
 API_KEY = os.environ.get("API_KEY")
 API_SECRET = os.environ.get("API_SECRET")
-MOBILE_NUMBER = os.environ.get("MOBILE_NUMBER")
+MOBILE = os.environ.get("MOBILE_NUMBER")
 PASSWORD = os.environ.get("PASSWORD")
 TOTP_SECRET = os.environ.get("TOTP")
 
-# ==============================
-# SAFETY SWITCH
-# ==============================
-SAFE_MODE = True   # 🔴 KEEP TRUE FOR TESTING
+BASE_URL = "https://gw-napi.kotaksecurities.com"
 
-# ==============================
+SAFE_MODE = True  # 🔴 KEEP TRUE FIRST
+
+# ================================
 # LOGIN FUNCTION
-# ==============================
+# ================================
 def login():
-    neo = NeoAPI(consumer_key=API_KEY, consumer_secret=API_SECRET)
+    totp = pyotp.TOTP(TOTP_SECRET).now()
 
-    neo.login(
-        mobilenumber=MOBILE_NUMBER,
-        password=PASSWORD
-    )
+    url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
-    otp = pyotp.TOTP(TOTP_SECRET).now()
-    neo.session_2fa(OTP=otp)
+    headers = {
+        "Authorization": API_KEY,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/json"
+    }
 
-    return neo
+    payload = {
+        "mobileNumber": MOBILE,
+        "password": PASSWORD,
+        "totp": totp
+    }
 
-# ==============================
+    res = requests.post(url, json=payload, headers=headers)
+    data = res.json()
+
+    if data.get("data", {}).get("status") != "success":
+        return None
+
+    return data.get("data", {}).get("token")
+
+
+# ================================
 # HOME
-# ==============================
-@app.route('/')
+# ================================
+@app.route("/")
 def home():
-    return {"message": "BOT LIVE"}
+    return "✅ SERVER LIVE"
 
-# ==============================
-# NIFTY BUY (UPDATED)
-# ==============================
-@app.route('/nifty-buy')
+
+# ================================
+# NIFTY BUY (FINAL)
+# ================================
+@app.route("/nifty-buy")
 def buy():
 
-    # 🔹 CURRENT NIFTY PRICE (manual for now)
-    nifty_price = 22236  
+    # 👉 MANUAL PRICE (for now)
+    nifty_price = 22236
 
-    # 🔹 Calculate ATM strike
+    # 👉 ATM strike
     strike = round(nifty_price / 100) * 100
 
-    # 🔹 Correct expiry
+    # 👉 EXPIRY (as per your input)
     symbol = f"NIFTY28APR26{strike}CE"
 
-    # 🔹 Correct order payload
     order_payload = {
         "exchangeSegment": "nse_fo",
         "product": "MIS",
@@ -68,28 +80,36 @@ def buy():
         "transactionType": "BUY"
     }
 
-    # ==============================
-    # SAFE MODE
-    # ==============================
+    # ================= SAFE MODE =================
     if SAFE_MODE:
-        return {
+        return jsonify({
             "msg": "SAFE MODE ON",
             "symbol": symbol,
             "qty": 65
-        }
+        })
 
-    try:
-        neo = login()
+    # ================= REAL ORDER =================
+    token = login()
 
-        response = neo.place_order(order_payload)
+    if not token:
+        return jsonify({"error": "Login failed"})
 
-        return response   # ✅ IMPORTANT FIX
+    order_url = f"{BASE_URL}/orders/1.0/place"
 
-    except Exception as e:
-        return {"error": str(e)}
+    headers = {
+        "Authorization": API_KEY,
+        "neo-fin-key": "neotradeapi",
+        "Content-Type": "application/json",
+        "access-token": token
+    }
 
-# ==============================
-# RUN APP
-# ==============================
+    res = requests.post(order_url, json=order_payload, headers=headers)
+
+    return jsonify(res.json())
+
+
+# ================================
+# RUN
+# ================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
