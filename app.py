@@ -16,18 +16,25 @@ TOTP_SECRET = os.environ.get("TOTP")
 
 BASE_URL = "https://gw-napi.kotaksecurities.com"
 
-# ==============================
-# SAFE MODE (IMPORTANT)
-# ==============================
-SAFE_MODE = True   # 🔴 KEEP TRUE FIRST
+SAFE_MODE = True  # 🔴 KEEP TRUE
 
 # ==============================
 # LOGIN FUNCTION
 # ==============================
 def login():
     try:
-        totp = pyotp.TOTP(TOTP_SECRET).now()
+        print("---- LOGIN START ----")
 
+        # Check env
+        if not all([API_KEY, MOBILE, PASSWORD, TOTP_SECRET]):
+            print("ENV ERROR:", API_KEY, MOBILE, PASSWORD, TOTP_SECRET)
+            return None
+
+        # Generate TOTP
+        totp = pyotp.TOTP(TOTP_SECRET).now()
+        print("Generated TOTP:", totp)
+
+        # STEP 1 LOGIN
         url = f"{BASE_URL}/login/1.0/tradeApiLogin"
 
         payload = {
@@ -41,15 +48,18 @@ def login():
         }
 
         res = requests.post(url, json=payload, headers=headers)
+        print("Login RAW:", res.text)
 
         data = res.json()
 
         if "data" not in data:
+            print("Login failed at step 1")
             return None
 
         request_id = data["data"]["requestId"]
+        print("Request ID:", request_id)
 
-        # 2FA
+        # STEP 2 2FA
         url_2fa = f"{BASE_URL}/login/1.0/2fa"
 
         payload_2fa = {
@@ -58,16 +68,21 @@ def login():
         }
 
         res2 = requests.post(url_2fa, json=payload_2fa, headers=headers)
+        print("2FA RAW:", res2.text)
 
         data2 = res2.json()
 
         if "data" not in data2:
+            print("2FA failed")
             return None
 
-        return data2["data"]["accessToken"]
+        token = data2["data"]["accessToken"]
+        print("Login SUCCESS")
+
+        return token
 
     except Exception as e:
-        print("Login Error:", e)
+        print("Login Exception:", str(e))
         return None
 
 # ==============================
@@ -92,15 +107,9 @@ def test_login():
 # ==============================
 @app.route("/nifty-buy")
 def buy():
-
     try:
-        # 👉 MANUAL PRICE
         nifty_price = 22236
-
-        # 👉 STRIKE
         strike = round(nifty_price / 100) * 100
-
-        # 👉 SYMBOL
         symbol = f"NIFTY28APR26{strike}CE"
 
         order_payload = {
@@ -113,7 +122,7 @@ def buy():
             "transactionType": "BUY"
         }
 
-        # ================= SAFE MODE =================
+        # SAFE MODE
         if SAFE_MODE:
             return jsonify({
                 "msg": "SAFE MODE ON",
@@ -121,7 +130,6 @@ def buy():
                 "qty": 65
             })
 
-        # ================= REAL ORDER =================
         token = login()
 
         if not token:
