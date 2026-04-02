@@ -67,7 +67,7 @@ def buy():
     # 👉 ATM strike
     strike = round(nifty_price / 100) * 100
 
-    # 👉 EXPIRY (as per your input)
+    # 👉 EXPIRY
     symbol = f"NIFTY28APR26{strike}CE"
 
     order_payload = {
@@ -80,17 +80,17 @@ def buy():
         "transactionType": "BUY"
     }
 
-    # ================= SAFE MODE =================
-    SAFE_MODE = False   # or True
+    # ========= SAFE MODE =========
+    SAFE_MODE = False   # ✅ INSIDE FUNCTION
 
-if SAFE_MODE:
-    return jsonify({
-        "msg": "SAFE MODE ON",
-        "symbol": symbol,
-        "qty": 65
-    })
+    if SAFE_MODE:
+        return jsonify({
+            "msg": "SAFE MODE ON",
+            "symbol": symbol,
+            "qty": 65
+        })
 
-    # ================= REAL ORDER =================
+    # ========= REAL ORDER =========
     token = login()
 
     if not token:
