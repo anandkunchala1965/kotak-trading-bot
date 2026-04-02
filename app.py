@@ -5,154 +5,147 @@ import requests
 
 app = Flask(__name__)
 
-# ==============================
-# ENV VARIABLES
-# ==============================
-API_KEY = os.environ.get("API_KEY")
-API_SECRET = os.environ.get("API_SECRET")
-MOBILE = os.environ.get("MOBILE_NUMBER")
-PASSWORD = os.environ.get("PASSWORD")
-TOTP_SECRET = os.environ.get("TOTP")
+# ================================
+# ENV VARIABLES (MATCHED TO RENDER)
+# ================================
+API_KEY = os.environ.get("API_TOKEN")
+MOBILE = os.environ.get("UCC")          # UCC (client id)
+PASSWORD = os.environ.get("MPIN")       # not used in API login
+TOTP_SECRET = os.environ.get("TOTP_SECRET")
 
 BASE_URL = "https://gw-napi.kotaksecurities.com"
 
-SAFE_MODE = True  # 🔴 KEEP TRUE
+SAFE_MODE = True   # KEEP TRUE
 
-# ==============================
+# ================================
 # LOGIN FUNCTION
-# ==============================
+# ================================
 def login():
     try:
         print("---- LOGIN START ----")
 
-        # Check env
-        if not all([API_KEY, MOBILE, PASSWORD, TOTP_SECRET]):
-            print("ENV ERROR:", API_KEY, MOBILE, PASSWORD, TOTP_SECRET)
+        if not all([API_KEY, MOBILE, TOTP_SECRET]):
+            print("ENV ERROR:", API_KEY, MOBILE, TOTP_SECRET)
             return None
 
         # Generate TOTP
         totp = pyotp.TOTP(TOTP_SECRET).now()
         print("Generated TOTP:", totp)
 
-        # STEP 1 LOGIN
-        url = f"{BASE_URL}/login/1.0/tradeApiLogin"
-
-        payload = {
-            "mobileNumber": MOBILE,
-            "password": PASSWORD
-        }
-
         headers = {
             "Authorization": API_KEY,
             "Content-Type": "application/json"
         }
 
-        res = requests.post(url, json=payload, headers=headers)
-        print("Login RAW:", res.text)
+        # ======================
+        # STEP 1 → GET requestId
+        # ======================
+        url1 = f"{BASE_URL}/login/1.0/login"
 
-        data = res.json()
+        payload1 = {
+            "loginId": MOBILE
+        }
 
-        if "data" not in data:
-            print("Login failed at step 1")
+        res1 = requests.post(url1, json=payload1, headers=headers)
+        print("STEP1 RAW:", res1.text)
+
+        data1 = res1.json()
+
+        if "data" not in data1:
+            print("Step1 failed")
             return None
 
-        request_id = data["data"]["requestId"]
-        print("Request ID:", request_id)
+        request_id = data1["data"]["requestId"]
 
-        # STEP 2 2FA
-        url_2fa = f"{BASE_URL}/login/1.0/2fa"
+        # ======================
+        # STEP 2 → VERIFY TOTP
+        # ======================
+        url2 = f"{BASE_URL}/login/1.0/2fa"
 
-        payload_2fa = {
+        payload2 = {
             "requestId": request_id,
             "otp": totp
         }
 
-        res2 = requests.post(url_2fa, json=payload_2fa, headers=headers)
-        print("2FA RAW:", res2.text)
+        res2 = requests.post(url2, json=payload2, headers=headers)
+        print("STEP2 RAW:", res2.text)
 
         data2 = res2.json()
 
         if "data" not in data2:
-            print("2FA failed")
+            print("Step2 failed")
             return None
 
-        token = data2["data"]["accessToken"]
-        print("Login SUCCESS")
+        token = data2["data"]["token"]
 
+        print("LOGIN SUCCESS")
         return token
 
     except Exception as e:
-        print("Login Exception:", str(e))
+        print("LOGIN ERROR:", str(e))
         return None
 
-# ==============================
-# HOME
-# ==============================
-@app.route("/")
-def home():
-    return {"message": "BOT LIVE"}
 
-# ==============================
-# TEST LOGIN
-# ==============================
+# ================================
+# TEST LOGIN ROUTE
+# ================================
 @app.route("/test-login")
 def test_login():
     token = login()
-    if not token:
-        return {"error": "Login failed"}
-    return {"token": token}
+    if token:
+        return jsonify({"msg": "Login SUCCESS"})
+    else:
+        return jsonify({"error": "Login failed"})
 
-# ==============================
-# BUY ORDER
-# ==============================
+
+# ================================
+# NIFTY BUY (SAFE MODE)
+# ================================
 @app.route("/nifty-buy")
 def buy():
-    try:
-        nifty_price = 22236
-        strike = round(nifty_price / 100) * 100
-        symbol = f"NIFTY28APR26{strike}CE"
+    nifty_price = 22236
+    strike = round(nifty_price / 100) * 100
+    symbol = f"NIFTY28APR26{strike}CE"
 
-        order_payload = {
-            "exchangeSegment": "nse_fo",
-            "product": "MIS",
-            "orderType": "MARKET",
-            "quantity": "65",
-            "validity": "DAY",
-            "tradingSymbol": symbol,
-            "transactionType": "BUY"
-        }
+    if SAFE_MODE:
+        return jsonify({
+            "msg": "SAFE MODE ON",
+            "symbol": symbol,
+            "qty": 65
+        })
 
-        # SAFE MODE
-        if SAFE_MODE:
-            return jsonify({
-                "msg": "SAFE MODE ON",
-                "symbol": symbol,
-                "qty": 65
-            })
+    token = login()
+    if not token:
+        return jsonify({"error": "Login failed"})
 
-        token = login()
+    order_url = f"{BASE_URL}/orders/1.0/place"
 
-        if not token:
-            return jsonify({"error": "Login failed"})
+    headers = {
+        "Authorization": API_KEY,
+        "x-auth-token": token,
+        "Content-Type": "application/json"
+    }
 
-        order_url = f"{BASE_URL}/orders/1.0/place"
+    order_payload = {
+        "exchangeSegment": "nse_fo",
+        "product": "MIS",
+        "orderType": "MARKET",
+        "quantity": "65",
+        "validity": "DAY",
+        "tradingSymbol": symbol,
+        "transactionType": "BUY"
+    }
 
-        headers = {
-            "Authorization": API_KEY,
-            "neo-fin-key": "neotradeapi",
-            "Content-Type": "application/json",
-            "access-token": token
-        }
+    res = requests.post(order_url, json=order_payload, headers=headers)
 
-        res = requests.post(order_url, json=order_payload, headers=headers)
+    return jsonify({
+        "order_response": res.text
+    })
 
-        return jsonify(res.json())
 
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-# ==============================
-# RUN
-# ==============================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+# ================================
+# ROOT
+# ================================
+@app.route("/")
+def home():
+    return "Kotak Bot Running 🚀"
