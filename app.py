@@ -28,22 +28,21 @@ def login():
             print("ENV ERROR:", API_KEY, MOBILE, TOTP_SECRET)
             return None
 
-        # Generate TOTP
         totp = pyotp.TOTP(TOTP_SECRET).now()
         print("Generated TOTP:", totp)
 
         headers = {
-            "Authorization": f"Bearer {API_KEY}",   # ✅ FIXED
+            "Authorization": API_KEY,   # ✅ NO Bearer
             "Content-Type": "application/json"
         }
 
         # ======================
-        # STEP 1 → requestId
+        # STEP 1 → initiate login
         # ======================
-        url1 = f"{BASE_URL}/login/1.0/login"
+        url1 = f"{BASE_URL}/login/1.0/initiateLogin"
 
         payload1 = {
-            "loginId": MOBILE
+            "userId": MOBILE
         }
 
         res1 = requests.post(url1, json=payload1, headers=headers)
@@ -51,7 +50,6 @@ def login():
         print("STEP1 STATUS:", res1.status_code)
         print("STEP1 RAW:", res1.text)
 
-        # SAFE JSON PARSE
         try:
             data1 = res1.json()
         except:
@@ -65,13 +63,13 @@ def login():
         request_id = data1["data"].get("requestId")
 
         if not request_id:
-            print("No requestId found")
+            print("No requestId")
             return None
 
         # ======================
-        # STEP 2 → TOTP verify
+        # STEP 2 → complete login
         # ======================
-        url2 = f"{BASE_URL}/login/1.0/2fa"
+        url2 = f"{BASE_URL}/login/1.0/completeLogin"
 
         payload2 = {
             "requestId": request_id,
@@ -142,7 +140,7 @@ def buy():
     order_url = f"{BASE_URL}/orders/1.0/place"
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": API_KEY,
         "x-auth-token": token,
         "Content-Type": "application/json"
     }
