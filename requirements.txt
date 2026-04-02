@@ -1,5 +1,5 @@
 Flask
 pyotp
-neo-api-client
 gunicorn
+requests
 
