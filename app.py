@@ -110,7 +110,7 @@ def nifty_buy():
     "orderType": "MARKET",
     "quantity": "1",
     "validity": "DAY",
-    "tradingSymbol": "NIFTY24APR22200CE",
+    "tradingSymbol": "NIFTY07APR22200CE",
     "transactionType": "BUY"
 }
 
