@@ -6,11 +6,11 @@ import requests
 app = Flask(__name__)
 
 # ================================
-# ENV VARIABLES (MATCHED TO RENDER)
+# ENV VARIABLES (RENDER)
 # ================================
 API_KEY = os.environ.get("API_TOKEN")
 MOBILE = os.environ.get("UCC")          # UCC (client id)
-PASSWORD = os.environ.get("MPIN")       # not used in API login
+PASSWORD = os.environ.get("MPIN")       # not used
 TOTP_SECRET = os.environ.get("TOTP_SECRET")
 
 BASE_URL = "https://gw-napi.kotaksecurities.com"
@@ -33,12 +33,12 @@ def login():
         print("Generated TOTP:", totp)
 
         headers = {
-            "Authorization": API_KEY,
+            "Authorization": f"Bearer {API_KEY}",   # ✅ FIXED
             "Content-Type": "application/json"
         }
 
         # ======================
-        # STEP 1 → GET requestId
+        # STEP 1 → requestId
         # ======================
         url1 = f"{BASE_URL}/login/1.0/login"
 
@@ -47,18 +47,29 @@ def login():
         }
 
         res1 = requests.post(url1, json=payload1, headers=headers)
+
+        print("STEP1 STATUS:", res1.status_code)
         print("STEP1 RAW:", res1.text)
 
-        data1 = res1.json()
-
-        if "data" not in data1:
-            print("Step1 failed")
+        # SAFE JSON PARSE
+        try:
+            data1 = res1.json()
+        except:
+            print("STEP1 NOT JSON RESPONSE")
             return None
 
-        request_id = data1["data"]["requestId"]
+        if "data" not in data1:
+            print("Step1 failed:", data1)
+            return None
+
+        request_id = data1["data"].get("requestId")
+
+        if not request_id:
+            print("No requestId found")
+            return None
 
         # ======================
-        # STEP 2 → VERIFY TOTP
+        # STEP 2 → TOTP verify
         # ======================
         url2 = f"{BASE_URL}/login/1.0/2fa"
 
@@ -68,15 +79,25 @@ def login():
         }
 
         res2 = requests.post(url2, json=payload2, headers=headers)
+
+        print("STEP2 STATUS:", res2.status_code)
         print("STEP2 RAW:", res2.text)
 
-        data2 = res2.json()
-
-        if "data" not in data2:
-            print("Step2 failed")
+        try:
+            data2 = res2.json()
+        except:
+            print("STEP2 NOT JSON RESPONSE")
             return None
 
-        token = data2["data"]["token"]
+        if "data" not in data2:
+            print("Step2 failed:", data2)
+            return None
+
+        token = data2["data"].get("token")
+
+        if not token:
+            print("No token received")
+            return None
 
         print("LOGIN SUCCESS")
         return token
@@ -87,7 +108,7 @@ def login():
 
 
 # ================================
-# TEST LOGIN ROUTE
+# TEST LOGIN
 # ================================
 @app.route("/test-login")
 def test_login():
@@ -121,7 +142,7 @@ def buy():
     order_url = f"{BASE_URL}/orders/1.0/place"
 
     headers = {
-        "Authorization": API_KEY,
+        "Authorization": f"Bearer {API_KEY}",
         "x-auth-token": token,
         "Content-Type": "application/json"
     }
