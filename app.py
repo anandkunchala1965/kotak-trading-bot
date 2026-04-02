@@ -81,12 +81,14 @@ def buy():
     }
 
     # ================= SAFE MODE =================
-    if SAFE_MODE:False
-        return jsonify({
-            "msg": "SAFE MODE ON",
-            "symbol": symbol,
-            "qty": 65
-        })
+    SAFE_MODE = False   # or True
+
+if SAFE_MODE:
+    return jsonify({
+        "msg": "SAFE MODE ON",
+        "symbol": symbol,
+        "qty": 65
+    })
 
     # ================= REAL ORDER =================
     token = login()
