@@ -19,7 +19,7 @@ BASE_URL = "https://mis.kotaksecurities.com"
 # =========================
 # SAFE MODE (IMPORTANT)
 # =========================
-SAFE_MODE = True
+SAFE_MODE = False
 
 # =========================
 # HOME
@@ -105,15 +105,14 @@ def nifty_buy():
 
         # STEP 2: PREPARE ORDER
         order_payload = {
-            "exchangeSegment": "nse_fo",
-            "product": "MIS",
-            "orderType": "LIMIT",
-            "price": "10",
-            "quantity": "65",
-            "validity": "DAY",
-            "tradingSymbol": "NIFTY24APR22700CE",
-            "transactionType": "BUY"
-        }
+    "exchangeSegment": "nse_fo",
+    "product": "MIS",
+    "orderType": "MARKET",
+    "quantity": "1",
+    "validity": "DAY",
+    "tradingSymbol": "NIFTY24APR22200CE",
+    "transactionType": "BUY"
+}
 
         # =========================
         # SAFE MODE BLOCK
